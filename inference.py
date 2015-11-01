@@ -30,7 +30,7 @@ def init(d: Data) -> Model:
     N = 4  # TODO: compute best value for N
     # TODO: find better initialization values for p, A, B
     #       (e.g. 1/N±ε (but careful not to use 1/N or we start at a local max)
-    p = np.ndarray((1, N))
+    p = np.ndarray((N, ))
     A = np.random.random((N, N))
     B = np.random.random((N, d.M))
     [p, A, B] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A, B])
@@ -43,7 +43,7 @@ def alpha_pass(d: Data, m: Model) -> Model:
     """
 
     # Compute α_0
-    c = np.ndarray((1, d.L))
+    c = np.ndarray((d.L,))
     alpha = np.ndarray((d.L, m.N))
     alpha[0] = m.p @ m.B[:, d.Y[0]]  # α_0(i) = π_i * P(Emission = Y[0] | State = i) = π_i * B(i, Y[0])
     # Using B^t:
@@ -74,7 +74,7 @@ def beta_pass(d: Data, m: Model) -> Model:
     """
     # assert(hasattr(m, 'c'))
     beta = np.ndarray((d.L, m.N))
-    e = np.ndarray((1, d.L))
+    e = np.ndarray((d.L, ))
 
     # Set β_{L-1}[i]=1*c[L-1]
     beta[d.L - 1].fill(1.)
@@ -93,7 +93,7 @@ def beta_pass(d: Data, m: Model) -> Model:
 def gammas(d: Data, m: Model) -> Model:
     assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
     digamma = np.ndarray(shape=(d.L - 2, m.N, m.N))
-    gamma = np.ndarray((1, d.L - 2))
+    gamma = np.ndarray((d.L - 2, ))
 
     for t in range(0, d.L - 2):
         digamma[t] = m.alpha[t] @ m.C[t + 1, :] @ m.beta[t + 1]  # FIXME?
@@ -152,5 +152,5 @@ def viterbi_path(d: Data, m: Model) -> np.ndarray:
     Returns the sequence of states maximizing the expected number of correct states.
     """
 
-    path = np.ndarray((1, d.L))
+    path = np.ndarray((d.L, ))
     return path
