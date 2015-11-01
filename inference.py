@@ -35,7 +35,7 @@ def init(d: Data) -> Model:
     B = np.random.random((N, d.M))
     [p, A, B] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A, B])
 
-    return Model(p=p, A=A, B=B, BT=np.copy(B.T), C=B.T @ A.T)
+    return Model(N=N, p=p, A=A, B=B, BT=np.copy(B.T), C=B.T @ A.T)
 
 
 def alpha_pass(d: Data, m: Model) -> Model:
