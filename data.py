@@ -38,10 +38,10 @@ def generate(N=4, M=10, L=1000) -> [Data, dict]:
         M = Number of possible emissions
         L = Number of emissions generated
     """
-    p = np.array(size=N)
+    p = np.empty((1, N))
     A = np.random.random((N, N))
     B = np.random.random((N, M))
-    Y = np.array(L)
+    Y = np.empty((1, L))
     [p, A, B] = map(lambda X: X / X.sum(axis=1)[:, None], [p, A, B])
 
     q = np.random.choice(N, p=p)  # Initial state
