@@ -32,7 +32,7 @@ def save(filename: str = ''):
     return False
 
 
-def generate(N=4, M=10, L=1000) -> [Data, dict]:
+def generate(N=4, M=10, L=1000) -> Data:
     """
         N = Number of states
         M = Number of possible emissions
@@ -49,4 +49,4 @@ def generate(N=4, M=10, L=1000) -> [Data, dict]:
         Y[t] = np.random.choice(M, p=B[q])  # Emission
         q = np.random.choice(N, p=A[q])  # Jump to next state
 
-    return [Data(M=M, L=L, Y=Y), {'p': p[0], 'A': A, 'B': B}]
+    return Data(M=M, L=L, Y=Y, generator= {'p': p[0], 'A': A, 'B': B})

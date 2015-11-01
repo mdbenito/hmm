@@ -81,8 +81,8 @@ def beta_pass(d: Data, m: Model) -> Model:
     e[d.L - 1] = 1. / beta[d.L - 1].sum()
     beta[d.L - 1] *= e[d.L - 1]
 
-    for t in range(d.L - 1, 0, -1):
-        beta[t] = (m.C[t + 1, :] @ beta[t + 1])  # FIXME?
+    for t in range(d.L - 2, 0, -1):
+        beta[t] = (m.C[d.Y[t + 1], :] @ beta[t + 1])  # FIXME?
         e[t] = 1. / beta[t].sum()
         beta[t] *= e[t]
 
@@ -92,11 +92,11 @@ def beta_pass(d: Data, m: Model) -> Model:
 
 def gammas(d: Data, m: Model) -> Model:
     assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
-    digamma = np.ndarray(shape=(d.L - 2, m.N, m.N))
+    digamma = np.ndarray((d.L - 2, m.N, m.N))
     gamma = np.ndarray((d.L - 2, ))
 
     for t in range(0, d.L - 2):
-        digamma[t] = m.alpha[t] @ m.C[t + 1, :] @ m.beta[t + 1]  # FIXME?
+        digamma[t] = m.alpha[t] @ m.C[d.Y[t + 1], :] @ m.beta[t + 1]  # FIXME?
         digamma[t] /= digamma[t].sum()
         gamma[t] = digamma[t].sum(axis=1)
 
@@ -131,14 +131,15 @@ def estimate(d: Data, m: Model) -> Model:
     return m
 
 
-def iterate(d: Data, maxiter=10) -> Model:
+def iterate(d: Data, m: Model=None, maxiter=10) -> Model:
     run = True
     ll = 0.
     it = 1
     print('Initializing model...')
-    m = init(d)
+    if m is None:
+        m = init(d)
     while run:
-        print('Running iteration ' + it + ':')
+        print('Running iteration ' + str(it) + ':')
         print('=====================')
         reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
         it += 1

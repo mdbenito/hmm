@@ -8,8 +8,8 @@ class TestMethods(ut.TestCase):
         self.assertEqual(1, 2)
 
     def test_generate(self):
-        [d, m] = data.generate()
-        for M in [m['p'], m['A'], m['B']]:
+        d = data.generate()
+        for M in d.generator.values:
             self.assertTrue(is_row_stochastic(M))
         self.assertEqual(d.Y.size, d.L)
         # TODO: more of this

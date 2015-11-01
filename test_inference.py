@@ -11,6 +11,10 @@ class TestMethods(ut.TestCase):
         for M in [m.p, m.A, m.B]:
             self.assertTrue(is_row_stochastic(M))
 
+    def test_estimate(self):
+        d = data.generate(N=4, M=10, L=10000)
+        m = inference.iterate(d, maxiter=1)
+
 
 if __name__ == '__main__':
     ut.main()

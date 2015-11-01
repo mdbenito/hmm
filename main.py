@@ -28,9 +28,11 @@ def parse_options(argv):
 
 def main(argv):
     [input_file, output_file] = parse_options(argv)
-    d = data.load_data(input_file)
+    # d = data.load_data(input_file)
+    d = data.generate()
     m = inference.iterate(d, maxiter=5)
-    inference.viterbi_path()
+
+    # inference.viterbi_path()
 
 if __name__ == '__main__':
     main(sys.argv[1:])
