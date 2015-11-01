@@ -30,12 +30,12 @@ def init(d: Data) -> Model:
     N = 4  # TODO: compute best value for N
     # TODO: find better initialization values for p, A, B
     #       (e.g. 1/N±ε (but careful not to use 1/N or we start at a local max)
-    p = np.ndarray((N, ))
+    p = np.ndarray((1, N))
     A = np.random.random((N, N))
     B = np.random.random((N, d.M))
     [p, A, B] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A, B])
 
-    return Model(N=N, p=p, A=A, B=B, BT=np.copy(B.T), C=B.T @ A.T)
+    return Model(N=N, p=p[0], A=A, B=B, BT=np.copy(B.T), C=B.T @ A.T)
 
 
 def alpha_pass(d: Data, m: Model) -> Model:
