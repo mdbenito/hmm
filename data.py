@@ -52,8 +52,8 @@ def generate(N=4, M=10, L=1000) -> Data:
     # Normalize probabilities (make row-stochastic)
     [p, A, B] = map(lambda X: X / X.sum(axis=1)[:, None], [p, A, B])
 
-    q = np.random.choice(N, p=p[0, :])  # Initial state
-    for t in range(1, L):
+    q = np.random.choice(N, p=p[0, :])  # Initial state, sampled from prior
+    for t in range(0, L):
         Y[t] = np.random.choice(M, p=B[q])  # Emission
         q = np.random.choice(N, p=A[q])  # Jump to next state
 
