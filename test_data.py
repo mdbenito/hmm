@@ -4,15 +4,16 @@ import data
 
 
 class TestMethods(ut.TestCase):
-    def test_load(self):
-        self.assertEqual(1, 2)
-
     def test_generate(self):
         d = data.generate()
-        for M in d.generator.values:
+        for M in d.generator.values():
             self.assertTrue(is_row_stochastic(M))
         self.assertEqual(d.Y.size, d.L)
+
         # TODO: more of this
+
+    # def test_load(self):
+    #     self.assertEqual(True, False, 'loading not implemented')
 
     # def test_save(self):
     #     self.assertTrue(False)

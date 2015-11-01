@@ -18,6 +18,9 @@ class Data:
 
     """
 
+    # Hints for the IDE:
+    L = None; M = None; Y = None
+
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
 
@@ -34,14 +37,19 @@ def save(filename: str = ''):
 
 def generate(N=4, M=10, L=1000) -> Data:
     """
-        N = Number of states
-        M = Number of possible emissions
-        L = Number of emissions generated
+        Constructs a random model and generates data using it.
+        Returns a Data object with a special dictionary containing the model parameters.
+
+        Arguments:
+            N = Number of states
+            M = Number of possible emissions
+            L = Number of emissions generated
     """
-    p = np.ndarray((1, N))
+    p = np.random.random((1, N))  # Careful, this needs reshaping/extraction
     A = np.random.random((N, N))
     B = np.random.random((N, M))
     Y = np.ndarray((L, ))
+    # Normalize probabilities (make row-stochastic)
     [p, A, B] = map(lambda X: X / X.sum(axis=1)[:, None], [p, A, B])
 
     q = np.random.choice(N, p=p[0, :])  # Initial state
@@ -49,4 +57,4 @@ def generate(N=4, M=10, L=1000) -> Data:
         Y[t] = np.random.choice(M, p=B[q])  # Emission
         q = np.random.choice(N, p=A[q])  # Jump to next state
 
-    return Data(M=M, L=L, Y=Y, generator= {'p': p[0], 'A': A, 'B': B})
+    return Data(M=M, L=L, Y=Y, generator={'p': p[0], 'A': A, 'B': B})

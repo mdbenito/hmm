@@ -1,7 +1,8 @@
 from functools import reduce
 import numpy as np
 from data import Data
-from utils import *
+from utils import is_row_stochastic
+
 
 class Model:
     """
@@ -21,6 +22,10 @@ class Model:
     Configuration:
         max_iterations
     """
+
+    # Hints for the IDE:
+    A = None; B = None; p = None; N = None
+    alpha = None; beta = None; gamma = None; digamma = None
 
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
@@ -45,9 +50,9 @@ def alpha_pass(d: Data, m: Model) -> Model:
     # Compute α_0
     c = np.ndarray((d.L,))
     alpha = np.ndarray((d.L, m.N))
-    alpha[0] = m.p @ m.B[:, d.Y[0]]  # α_0(i) = π_i * P(Emission = Y[0] | State = i) = π_i * B(i, Y[0])
+    alpha[0] = m.p * m.B[:, d.Y[0]]  # α_0(i) = π_i * P(Emission = Y[0] | State = i) = π_i * B(i, Y[0])
     # Using B^t:
-    # alpha[0] = m.p @ m.BT[d.Y[0], :]
+    # alpha[0] = m.p * m.BT[d.Y[0], :]
 
     # Rescale α_0
     c[0] = 1. / alpha[0].sum()
@@ -55,7 +60,7 @@ def alpha_pass(d: Data, m: Model) -> Model:
 
     # Compute α_t, rescaling at each stage
     for t in range(1, d.L):
-        alpha[t] = m.C[d.Y[t], :] @ alpha[t - 1]  # FIXME?
+        alpha[t] = (alpha[t - 1] @ m.A) * m.B[:, d.Y[t]]
         c[t] = 1. / alpha[t].sum()
         alpha[t] *= c[t]
 
@@ -82,7 +87,7 @@ def beta_pass(d: Data, m: Model) -> Model:
     beta[d.L - 1] *= e[d.L - 1]
 
     for t in range(d.L - 2, 0, -1):
-        beta[t] = (m.C[d.Y[t + 1], :] @ beta[t + 1])  # FIXME?
+        beta[t] = m.A @ (m.B[:, d.Y[t + 1]] * beta[t + 1])
         e[t] = 1. / beta[t].sum()
         beta[t] *= e[t]
 
@@ -93,10 +98,10 @@ def beta_pass(d: Data, m: Model) -> Model:
 def gammas(d: Data, m: Model) -> Model:
     assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
     digamma = np.ndarray((d.L - 2, m.N, m.N))
-    gamma = np.ndarray((d.L - 2, ))
+    gamma = np.ndarray((d.L - 2, m.N))
 
     for t in range(0, d.L - 2):
-        digamma[t] = m.alpha[t] @ m.C[d.Y[t + 1], :] @ m.beta[t + 1]  # FIXME?
+        digamma[t] = m.alpha[t] * (m.A * m.B[:, d.Y[t+1]]) * m.beta[t+1].reshape(m.N, 1)
         digamma[t] /= digamma[t].sum()
         gamma[t] = digamma[t].sum(axis=1)
 
@@ -116,7 +121,7 @@ def estimate(d: Data, m: Model) -> Model:
 
     # Re-estimate emission matrix B FIXME! This is going to be sloooooow!
     m.B.fill(0.)
-    for j in range(0, d.N):
+    for j in range(0, m.N):
         for k in range(0, d.M):
             for t in range(0, d.L - 2):
                 m.B[j, k] += m.gamma[t, j] if d.Y[t] == k else 0.
@@ -133,19 +138,20 @@ def estimate(d: Data, m: Model) -> Model:
 
 def iterate(d: Data, m: Model=None, maxiter=10) -> Model:
     run = True
-    ll = 0.
+    ll = - np.inf
     it = 1
-    print('Initializing model...')
+    print('Running (maxiter = ' + str(maxiter) + '):')
     if m is None:
+        print('Initializing model...')
         m = init(d)
     while run:
-        print('Running iteration ' + str(it) + ':')
-        print('=====================')
+        print('Iteration ' + str(it), end=', ', flush=True)
         reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
         it += 1
-        run = it <= maxiter and m.ll > ll
+        run = it <= maxiter and m.ll > ll and not np.isclose(m.ll, ll)
         ll = m.ll
-        print('Computed likelihood for the observations: ' + ll)
+        print('likelihood = ' + str(ll))
+    return m
 
 
 def viterbi_path(d: Data, m: Model) -> np.ndarray:
@@ -155,3 +161,11 @@ def viterbi_path(d: Data, m: Model) -> np.ndarray:
 
     path = np.ndarray((d.L, ))
     return path
+
+
+# def check_data(d: Data, m: Model=None) -> bool:
+#     assert(d.Y.shape == (d.L,))
+#     if m is not None:
+#         assert(m.A.shape == (m.N, m.N))
+#         assert(m.B.shape == (m.N, d.M))
+#         assert(map(is_row_stochastic, [m.p, m.A, m.B]).all())
