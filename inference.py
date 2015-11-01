@@ -169,6 +169,9 @@ def viterbi_path(d: Data, m: Model) -> np.ndarray:
     return path
 
 
+def save(m: Model, filename: str = ''):
+    return False
+
 # def check_data(d: Data, m: Model=None) -> bool:
 #     assert(d.Y.shape == (d.L,))
 #     if m is not None:

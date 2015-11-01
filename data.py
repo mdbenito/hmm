@@ -27,10 +27,6 @@ def load(filename: str = ''):
     return Data(M=M, L=L, Y=Y)
 
 
-def save(filename: str = ''):
-    return False
-
-
 def generate(N=4, M=10, L=1000) -> Data:
     """
         Constructs a random model and generates data using it.
