@@ -1,3 +1,4 @@
+from functools import reduce
 import numpy as np
 
 
@@ -8,3 +9,7 @@ def is_row_stochastic(M: np.ndarray) -> bool:
         return np.isclose(M.sum(), 1.)
     elif M.ndim == 2:
         return np.allclose(M.sum(axis=1), [1. for x in range(0, M.shape[0])])
+
+
+def doto (val, *funs):
+    reduce(lambda x, f: f(x), funs, val)
