@@ -1,5 +1,9 @@
-import getopt
 import sys
+if sys.version_info < (3, 5):
+    print('Sorry, Python version >= 3.5 is required.')
+    sys.exit(128)
+
+import getopt
 import inference
 import data
 
