@@ -43,10 +43,10 @@ class TestMethods(ut.TestCase):
         m = i.iterate(d, maxiter=10)
         [A, B] = [d.generator[k] for k in ('A', 'B')]
 
-        self.assertTrue(np.allclose(A, m.A, atol=1.e-5),
-                        'Estimated transition matrix diverges from generator:\nA:\n' + str(A) + '\nm.A:\n' + str(m.A))
-        self.assertTrue(np.allclose(B, m.B, atol=1.e-5),
-                        'Estimated emission matrix diverges from generator\nB:\n' + str(B) + '\nm.B\n' + str(m.B))
+        if not np.allclose(A, m.A, atol=1.e-5):
+            self.fail('Estimated transition matrix diverges from generator:\nA:\n' + str(A) + '\nm.A:\n' + str(m.A))
+        if not np.allclose(B, m.B, atol=1.e-5):
+            self.fail('Estimated emission matrix diverges from generator\nB:\n' + str(B) + '\nm.B\n' + str(m.B))
 
 if __name__ == '__main__':
     ut.main()
