@@ -1,7 +1,3 @@
-#############################################################################
-# Data R/W and synthetic datasets
-#
-#############################################################################
 import numpy as np
 from h5py import File
 
@@ -38,13 +34,14 @@ def save(filename: str = ''):
 def generate(N=4, M=10, L=1000) -> Data:
     """
         Constructs a random model and generates data using it.
-        Returns a Data object with a special dictionary containing the model parameters.
+        Returns a Data object with a special dictionary containing the model parameters for verification.
 
         Arguments:
             N = Number of states
             M = Number of possible emissions
             L = Number of emissions generated
     """
+
     p = np.random.random((1, N))  # Careful, this needs reshaping/extraction
     A = np.random.random((N, N))
     B = np.random.random((N, M))

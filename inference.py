@@ -12,7 +12,6 @@ class Model:
         A = State transition matrix (NxN): A[i,j] = Prob(X_{t+1} = j | X_t = i)
         B = Observation probability matrix (NxM): B(q, y) = Prob(Y_t = y | X_t = q)
             TODO: check whether usage pattern for B makes the transpose a more sensible choice
-        C = B^t @ A^t. Can be used for the computation of α_t, see TODO above.
         p = Prior distribution for the initial state
 
     Model parameters:
@@ -31,16 +30,23 @@ class Model:
         self.__dict__.update(kwds)
 
 
-def init(d: Data) -> Model:
-    N = 4  # TODO: compute best value for N
-    # TODO: find better initialization values for p, A, B
-    #       (e.g. 1/N±ε (but careful not to use 1/N or we start at a local max)
-    p = np.ndarray((1, N))
-    A = np.random.random((N, N))
-    B = np.random.random((N, d.M))
+def init(d: Data, N=4) -> Model:
+    """
+    Initializes the model to random values.
+    We must be careful not to use 1/N for initialization or we start at a local max. Instead we use 1/N ± ε
+
+    TODO: compute best value for N
+
+    """
+    eps = 1e-2
+    p = np.random.random((1, N))*eps + 1./N
+    A = np.random.random((N, N))*eps + 1./N
+    B = np.random.random((N, d.M))*eps + 1./d.M
+
+    # Normalize probabilities (make row-stochastic)
     [p, A, B] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A, B])
 
-    return Model(N=N, p=p[0], A=A, B=B, BT=np.copy(B.T), C=B.T @ A.T)
+    return Model(N=N, p=p[0], A=A, B=B)  # BT=np.copy(B.T)
 
 
 def alpha_pass(d: Data, m: Model) -> Model:
@@ -130,7 +136,7 @@ def estimate(d: Data, m: Model) -> Model:
     # Compute (log) likelihood of the observed emissions under the current model parameters
     m.ll = - np.log(m.c).sum()
 
-    # Sanity checks:
+    # Sanity check
     assert (is_row_stochastic(m.A) and is_row_stochastic(m.B) and is_row_stochastic(m.p))
 
     return m
