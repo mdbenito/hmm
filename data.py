@@ -15,7 +15,7 @@ class Data:
     """
 
     # Hints for the IDE:
-    L = None; M = None; Y = None
+    L = int(); M = int(); Y = np.ndarray((0, 0))
 
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
@@ -27,7 +27,7 @@ def load(filename: str = ''):
     return Data(M=M, L=L, Y=Y)
 
 
-def generate(N=4, M=10, L=1000) -> Data:
+def generate(N: int=4, M: int=10, L: int=1000) -> Data:
     """
         Constructs a random model and generates data using it.
         Returns a Data object with a special dictionary containing the model parameters for verification.

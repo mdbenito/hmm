@@ -23,14 +23,14 @@ class Model:
     """
 
     # Hints for the IDE:
-    A = None; B = None; p = None; N = None
-    alpha = None; beta = None; gamma = None; digamma = None
+    A = np.ndarray((0, 0)); B = np.ndarray((0, 0)); p = np.ndarray((0,)); N = int()
+    alpha = np.ndarray((0, 0)); beta = np.ndarray((0, 0)); gamma = np.ndarray((0, 0)); digamma = np.ndarray((0, 0, 0))
 
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
 
 
-def init(d: Data, N=4) -> Model:
+def init(d: Data, N: int=4) -> Model:
     """
     Initializes the model to random values.
     We must be careful not to use 1/N for initialization or we start at a local max. Instead we use 1/N ± ε
