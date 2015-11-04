@@ -8,8 +8,8 @@ def is_row_stochastic(M: np.ndarray) -> bool:
     if M.ndim == 1:
         return np.isclose(M.sum(), 1.) and (M >= 0).all()
     elif M.ndim == 2:
-        return np.allclose(M.sum(axis=1), [1. for x in range(0, M.shape[0])]) and (M >= 0).all()
+        return np.allclose(M.sum(axis=1), np.ones(M.shape[0])) and (M >= 0).all()
 
 
-def doto (val, *funs):
-    reduce(lambda x, f: f(x), funs, val)
+def doto (val, *funs, **key_args):
+    reduce(lambda x, f: f(x, **key_args), funs, val)
