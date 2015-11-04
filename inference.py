@@ -1,9 +1,8 @@
 from functools import reduce
 import numpy as np
-import config
 from data import Data
 from utils import is_row_stochastic
-
+from time import time
 
 class Model:
     """
@@ -95,11 +94,13 @@ def beta_pass(d: Data, m: Model) -> Model:
     # Set β_{L-1}[i]=1*c[L-1]
     beta[d.L - 1].fill(1./d.L)
     e[d.L - 1] = 1. / d.L
-
+    # beta[d.L-1] = m.c[d.L-1]
     for t in range(d.L - 2, -1, -1):
         beta[t] = m.A @ (m.B[:, d.Y[t + 1]] * beta[t + 1])
         e[t] = 1. / beta[t].sum()
         beta[t] *= e[t]
+        # f = e - m.c
+        # beta[t] *= m.c[t]
 
     m.beta = beta
     return m
@@ -116,6 +117,7 @@ def gammas(d: Data, m: Model) -> Model:
     gamma = np.ndarray((d.L - 1, m.N))
 
     for t in range(0, d.L - 1):
+        # FIXME: Using column views is going to make this sloooow! Better transpose...
         digamma[t] = m.alpha[t].reshape(m.N, 1) * (m.A * (m.B[:, d.Y[t+1]] * m.beta[t+1].reshape(m.N, 1)))
         digamma[t] /= digamma[t].sum()
         gamma[t] = digamma[t].sum(axis=1)
@@ -160,12 +162,15 @@ def iterate(d: Data, m: Model=None, maxiter=10) -> Model:
         print('Initializing model...')
         m = init(d)
     while run:
-        print('Iteration ' + str(it), end=', ', flush=True)
+        print('Iteration {}, '.format(it), end='', flush=True)
+        start = time()
         m = reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
+        end = time()
+
         it += 1
-        run = it <= maxiter and m.ll > ll and not np.isclose(m.ll, ll, atol=1e-10)
+        run = it <= maxiter and m.ll > ll  # and not np.isclose(m.ll, ll, atol=1e-10)  # This isn't doing what I expect
         ll = m.ll
-        print('likelihood = ' + str(ll))
+        print("run in {:.4}s with likelihood = {:.8}".format(end - start, ll))
     return m
 
 
