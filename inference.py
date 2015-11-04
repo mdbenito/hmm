@@ -10,14 +10,18 @@ class Model:
     Model attributes:
         N = Number of states in the model
         Q = { q_0, ..., q_{N-1} } = states of the Markov process
+
+    Model parameters:
         A = State transition matrix (NxN): A[i,j] = Prob(X_{t+1} = j | X_t = i)
         B = Observation probability matrix (NxM): B(q, y) = Prob(Y_t = y | X_t = q)
             TODO: check whether usage pattern for B makes the transpose a more sensible choice
         p = Prior distribution for the initial state
 
-    Model parameters:
-        alpha (TxN)
-        beta (TxN)
+    Internal data:
+        alpha (LxN)
+        beta (LxN)
+        gamma (LxN)
+        digamma(LxNxN)
 
     Configuration:
         max_iterations
