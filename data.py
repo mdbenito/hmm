@@ -9,7 +9,7 @@ class Data:
     Contains:
         L = Number of observations
         M = Number of symbols which may be observed
-        V = { 0, 1, ..., M-1} = possible observations
+        V = { 0, 1, ..., M-1} = possible observations (TODO)
         Y = {Y_0, ..., Y_{L-1} } = sequence of observations
 
     """
@@ -32,22 +32,22 @@ def generate(N: int=4, M: int=10, L: int=1000) -> Data:
         Constructs a random model and generates data using it.
         Returns a Data object with a special dictionary containing the model parameters for verification.
 
-        Arguments:
-            N = Number of states
-            M = Number of possible emissions
-            L = Number of emissions generated
+            :param N: Number of states
+            :param M: Number of possible emissions
+            :param L: Number of emissions generated
     """
 
     p = np.random.random((1, N))  # Careful, this needs reshaping/extraction
     A = np.random.random((N, N))
     B = np.random.random((N, M))
     Y = np.ndarray((L, ))
+    Q = np.ndarray((L, ))
     # Normalize probabilities (make row-stochastic)
     [p, A, B] = map(lambda X: X / X.sum(axis=1)[:, None], [p, A, B])
 
-    q = np.random.choice(N, p=p[0, :])  # Initial state, sampled from prior
+    Q[0] = np.random.choice(N, p=p[0, :])  # Initial state, sampled from prior
     for t in range(0, L):
-        Y[t] = np.random.choice(M, p=B[q])  # Emission
-        q = np.random.choice(N, p=A[q])  # Jump to next state
+        Y[t] = np.random.choice(M, p=B[Q[0]])  # Emission
+        Q[t] = np.random.choice(N, p=A[Q[0]])  # Jump to next state
 
-    return Data(M=M, L=L, Y=Y, generator={'p': p[0], 'A': A, 'B': B})
+    return Data(M=M, L=L, Y=Y, generator={'p': p[0], 'A': A, 'B': B, 'Q': Q})
