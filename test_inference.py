@@ -2,6 +2,7 @@ import unittest as ut
 import numpy as np
 import inference as i
 import data
+import config
 from utils import is_row_stochastic
 
 
@@ -42,9 +43,9 @@ class TestMethods(ut.TestCase):
         m = i.iterate(d, maxiter=10)
         [A, B] = [d.generator[k] for k in ('A', 'B')]
 
-        if not np.allclose(A, m.A, atol=1.e-5):
+        if not np.allclose(A, m.A, atol=config.eps):
             self.fail('Estimated transition matrix diverges from generator:\nA:\n' + str(A) + '\nm.A:\n' + str(m.A))
-        if not np.allclose(B, m.B, atol=1.e-5):
+        if not np.allclose(B, m.B, atol=config.eps):
             self.fail('Estimated emission matrix diverges from generator\nB:\n' + str(B) + '\nm.B\n' + str(m.B))
 
 if __name__ == '__main__':
