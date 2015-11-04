@@ -39,7 +39,7 @@ class TestMethods(ut.TestCase):
     def test_estimate(self):
         d = data.generate(N=2, M=2, L=100)
         m = i.init(d, 2)
-        m = i.iterate(d, m, maxiter=10)
+        m = i.iterate(d, m, maxiter=100)
         [A, B] = [d.generator[k] for k in ['A', 'B']]
 
         if not np.allclose(A, m.A, atol=config.eps):
