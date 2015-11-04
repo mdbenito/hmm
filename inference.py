@@ -152,7 +152,7 @@ def iterate(d: Data, m: Model=None, maxiter=10) -> Model:
         m = init(d)
     while run:
         print('Iteration ' + str(it), end=', ', flush=True)
-        reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
+        m = reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
         it += 1
         run = it <= maxiter and m.ll > ll and not np.isclose(m.ll, ll, atol=config.eps)
         ll = m.ll
