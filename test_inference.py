@@ -1,3 +1,4 @@
+from functools import reduce
 import unittest as ut
 import numpy as np
 import inference as i
@@ -31,12 +32,9 @@ class TestMethods(ut.TestCase):
         self.assertEqual(m.beta.shape, (self.d.L, m.N), 'Shapes don\'t match')
 
     def test_gammas(self):
-        m = i.init(self.d)
-        m = i.alpha_pass(self.d, m)
-        m = i.beta_pass(self.d, m)
-        m = i.gammas(self.d, m)
-        self.assertEqual(m.digamma.shape, (self.d.L-2, m.N, m.N), 'Shapes don\'t match')
-        self.assertEqual(m.gamma.shape, (self.d.L-2, m.N), 'Shapes don\'t match')
+        m = reduce(lambda x, f: f(self.d, x), [i.alpha_pass, i.beta_pass, i.gammas, i.estimate], i.init(self.d))
+        self.assertEqual(m.digamma.shape, (self.d.L-1, m.N, m.N), 'Shapes don\'t match')
+        self.assertEqual(m.gamma.shape, (self.d.L-1, m.N), 'Shapes don\'t match')
 
     def test_estimate(self):
         d = data.generate(N=2, M=2, L=100)
