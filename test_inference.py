@@ -13,8 +13,7 @@ class TestMethods(ut.TestCase):
     def test_init(self):
         m = i.init(self.d)
         for M in [m.p, m.A, m.B]:
-            self.assertTrue(is_row_stochastic(M))
-            map(self.assertTrue, M >= 0)
+            self.assertTrue(is_row_stochastic(M), 'Initial model parameters are not probabilities')
 
         self.assertEqual(m.p.shape, (m.N, ), 'Shapes don\'t match')
         self.assertEqual(m.A.shape, (m.N, m.N), 'Shapes don\'t match')
