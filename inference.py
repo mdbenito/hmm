@@ -106,12 +106,17 @@ def beta_pass(d: Data, m: Model) -> Model:
 
 
 def gammas(d: Data, m: Model) -> Model:
+    """
+    Computes
+        ɣ(t,i) = P(X_t = i | Y_1, ..., Y_{L-1})
+        ɣ(t,i,j) = ...
+    """
     assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
     digamma = np.ndarray((d.L - 1, m.N, m.N))
     gamma = np.ndarray((d.L - 1, m.N))
 
     for t in range(0, d.L - 1):
-        digamma[t] = m.alpha[t] * (m.A * m.B[:, d.Y[t+1]]) * m.beta[t+1].reshape(m.N, 1)
+        digamma[t] = m.alpha[t].reshape(m.N, 1) * (m.A * (m.B[:, d.Y[t+1]] * m.beta[t+1].reshape(m.N, 1)))
         digamma[t] /= digamma[t].sum()
         gamma[t] = digamma[t].sum(axis=1)
 
