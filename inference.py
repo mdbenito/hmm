@@ -89,9 +89,8 @@ def beta_pass(d: Data, m: Model) -> Model:
     e = np.ndarray((d.L, ))
 
     # Set β_{L-1}[i]=1*c[L-1]
-    beta[d.L - 1].fill(1.)
-    e[d.L - 1] = 1. / beta[d.L - 1].sum()
-    beta[d.L - 1] *= e[d.L - 1]
+    beta[d.L - 1].fill(1./d.L)
+    e[d.L - 1] = 1. / d.L
 
     for t in range(d.L - 2, -1, -1):
         beta[t] = m.A @ (m.B[:, d.Y[t + 1]] * beta[t + 1])
