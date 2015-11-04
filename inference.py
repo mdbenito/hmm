@@ -1,5 +1,6 @@
 from functools import reduce
 import numpy as np
+import config
 from data import Data
 from utils import is_row_stochastic
 
@@ -154,7 +155,7 @@ def iterate(d: Data, m: Model=None, maxiter=10) -> Model:
         print('Iteration ' + str(it), end=', ', flush=True)
         reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
         it += 1
-        run = it <= maxiter and m.ll > ll and not np.isclose(m.ll, ll)
+        run = it <= maxiter and m.ll > ll and not np.isclose(m.ll, ll, atol=config.eps)
         ll = m.ll
         print('likelihood = ' + str(ll))
     return m
