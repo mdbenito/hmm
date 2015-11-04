@@ -39,9 +39,10 @@ class TestMethods(ut.TestCase):
         self.assertEqual(m.gamma.shape, (self.d.L-2, m.N), 'Shapes don\'t match')
 
     def test_estimate(self):
-        d = data.generate(N=4, M=10, L=1000)
-        m = i.iterate(d, maxiter=10)
-        [A, B] = [d.generator[k] for k in ('A', 'B')]
+        d = data.generate(N=2, M=2, L=100)
+        m = i.init(d, 2)
+        m = i.iterate(d, m, maxiter=10)
+        [A, B] = [d.generator[k] for k in ['A', 'B']]
 
         if not np.allclose(A, m.A, atol=config.eps):
             self.fail('Estimated transition matrix diverges from generator:\nA:\n' + str(A) + '\nm.A:\n' + str(m.A))
