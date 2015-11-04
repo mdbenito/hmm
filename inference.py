@@ -93,7 +93,7 @@ def beta_pass(d: Data, m: Model) -> Model:
     e[d.L - 1] = 1. / beta[d.L - 1].sum()
     beta[d.L - 1] *= e[d.L - 1]
 
-    for t in range(d.L - 2, 0, -1):
+    for t in range(d.L - 2, -1, -1):
         beta[t] = m.A @ (m.B[:, d.Y[t + 1]] * beta[t + 1])
         e[t] = 1. / beta[t].sum()
         beta[t] *= e[t]
@@ -104,10 +104,10 @@ def beta_pass(d: Data, m: Model) -> Model:
 
 def gammas(d: Data, m: Model) -> Model:
     assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
-    digamma = np.ndarray((d.L - 2, m.N, m.N))
-    gamma = np.ndarray((d.L - 2, m.N))
+    digamma = np.ndarray((d.L - 1, m.N, m.N))
+    gamma = np.ndarray((d.L - 1, m.N))
 
-    for t in range(0, d.L - 2):
+    for t in range(0, d.L - 1):
         digamma[t] = m.alpha[t] * (m.A * m.B[:, d.Y[t+1]]) * m.beta[t+1].reshape(m.N, 1)
         digamma[t] /= digamma[t].sum()
         gamma[t] = digamma[t].sum(axis=1)
@@ -130,7 +130,7 @@ def estimate(d: Data, m: Model) -> Model:
     m.B.fill(0.)
     for j in range(0, m.N):
         for k in range(0, d.M):
-            for t in range(0, d.L - 2):
+            for t in range(0, d.L - 1):
                 m.B[j, k] += m.gamma[t, j] if d.Y[t] == k else 0.
     m.B /= m.gamma.sum(axis=0)[:, None]
 
