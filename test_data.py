@@ -6,8 +6,8 @@ import data
 class TestMethods(ut.TestCase):
     def test_generate(self):
         d = data.generate(N=4, M=10, L=1000)
-        for M in d.generator.values():
-            self.assertTrue(is_row_stochastic(M))
+        for k, v in [[k, d.generator[k]] for k in ['p', 'A', 'B']]:
+            self.assertTrue(is_row_stochastic(v), str(k) + " doesn't define a probability: " + str(v))
         self.assertEqual(d.Y.size, d.L)
 
         if not (d.Y >= 0.).all() or not (d.Y <= 9).all():
