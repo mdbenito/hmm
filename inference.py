@@ -4,11 +4,14 @@ from data import Data
 from utils import is_row_stochastic
 from time import time
 
+
 class Model:
     """
-    Model attributes:
+    Model attributes and data:
         N = Number of states in the model
-        Q = { q_0, ..., q_{N-1} } = states of the Markov process
+        Q = { q_0, ..., q_{N-1} } = possible states of the Markov process
+        X = [X_0, ..., X_{L-1}] = chain of states
+        Y = [Y_0, ..., Y_{L-1}] = observed emissions
 
     Model parameters:
         A = State transition matrix (NxN): A[i,j] = Prob(X_{t+1} = j | X_t = i)
@@ -37,12 +40,13 @@ class Model:
 def init(d: Data, N: int=4) -> Model:
     """
     Initializes the model to random values.
-    We must be careful not to use 1/N for initialization or we start at a local max.
-    Instead we use 1/N ± ε(N), with ε(N)~U(-1/(2N),1/(2N))
-
     TODO: compute best value for N
 
+    :param N: Number of states in the model
+    :param d: Data object
     """
+    # We must be careful not to use 1/N for initialization or we start at a local max.
+    # Instead we use 1/N ± ε(N), with ε(N)~U(-1/(2N),1/(2N))
     p = (0.5 + np.random.random((1, N)))/N
     A = (0.5 + np.random.random((N, N)))/N
     B = (0.5 + np.random.random((N, d.M)))/d.M
@@ -55,6 +59,8 @@ def init(d: Data, N: int=4) -> Model:
 
 def alpha_pass(d: Data, m: Model) -> Model:
     """
+    Computes
+        α_t(i) = α(t, i) = P(X_t = i, Y_0 = y_0, ..., Y_t = y_t)
     """
 
     # Compute α_0
@@ -83,7 +89,8 @@ def alpha_pass(d: Data, m: Model) -> Model:
 
 def beta_pass(d: Data, m: Model) -> Model:
     """
-    Computes β.
+    Computes
+        β_t(i) = β(t, i) = P(Y_{t+1} = y_{t+1}, ..., Y_{L-1} = y_{l-1} | X_t = i)
 
     Rescaling is done with a new variable instead of using m.c, in order to enable parallel execution.
     """
@@ -109,8 +116,8 @@ def beta_pass(d: Data, m: Model) -> Model:
 def gammas(d: Data, m: Model) -> Model:
     """
     Computes
-        ɣ(t,i) = P(X_t = i | Y_1, ..., Y_{L-1})
-        ɣ(t,i,j) = ...
+        ɣ(t, i)    = P(X_t = i | Y_0, ..., Y_{L-1})
+        ɣ(t, i, j) = P(X_t = i, X_{t+1} = j | Y_0, ..., Y_{L-1})
     """
     assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
     digamma = np.ndarray((d.L - 1, m.N, m.N))
