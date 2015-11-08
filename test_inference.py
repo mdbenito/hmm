@@ -10,16 +10,19 @@ from utils import is_row_stochastic
 class TestMethods(ut.TestCase):
     def __init__(self, methodName='runTest'):
         super().__init__(methodName)
-        self.d = data.Data(M=10, L=100, Y=np.random.random_integers(low=0, high=9, size=(1, 100)).reshape((100,)))
+        self.d = data.generate(N=4, M=8, L=1000)
 
     def test_init(self):
         m = i.init(self.d)
         for M in [m.p, m.A, m.B]:
             self.assertTrue(is_row_stochastic(M), 'Initial model parameters are not probabilities')
 
-        self.assertEqual(m.p.shape, (m.N, ), 'Shapes don\'t match')
-        self.assertEqual(m.A.shape, (m.N, m.N), 'Shapes don\'t match')
-        self.assertEqual(m.B.shape, (m.N, self.d.M), 'Shapes don\'t match')
+        with self.subTest('Test prior'):
+            self.assertEqual(m.p.shape, (m.N, ), 'Shapes don\'t match')
+        with self.subTest('Test transition'):
+            self.assertEqual(m.A.shape, (m.N, m.N), 'Shapes don\'t match')
+        with self.subTest('Test emission'):
+            self.assertEqual(m.B.shape, (m.N, self.d.M), 'Shapes don\'t match')
 
     def test_alpha_pass(self):
         m = i.init(self.d)
@@ -33,19 +36,45 @@ class TestMethods(ut.TestCase):
 
     def test_gammas(self):
         m = reduce(lambda x, f: f(self.d, x), [i.alpha_pass, i.beta_pass, i.gammas, i.estimate], i.init(self.d))
-        self.assertEqual(m.digamma.shape, (self.d.L-1, m.N, m.N), 'Shapes don\'t match')
-        self.assertEqual(m.gamma.shape, (self.d.L-1, m.N), 'Shapes don\'t match')
+        with self.subTest('Test gamma'):
+            self.assertEqual(m.gamma.shape, (self.d.L-1, m.N), 'Shapes don\'t match')
+        with self.subTest('Test digamma'):
+            self.assertEqual(m.digamma.shape, (self.d.L-1, m.N, m.N), 'Shapes don\'t match')
 
+    def test_estimate_simple(self):
+        N = 2
+        p = np.array([1, 0])
+        A = np.array([[0.9999, 0.0001], [0.0001, 0.9999]])
+        B = np.array([[1, 0], [0, 1]])
+        d = data.generate(N=N, M=2, L=100, p=p, A=A, B=B)
+        m = i.init(d, N)
+        m = i.iterate(d, m, maxiter=1000)
+
+        with self.subTest('Test prior'):
+            if not np.allclose(p, m.p, atol=config.eps):
+                self.fail('Estimated prior diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
+        with self.subTest('Test transition'):
+            if not np.allclose(A, m.A, atol=config.eps):
+                self.fail('Estimated transition matrix diverges from generator:\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
+        with self.subTest('Test emission'):
+            if not np.allclose(B, m.B, atol=config.eps):
+                self.fail('Estimated emission matrix diverges from generator\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
+
+    @ut.skip('Basic test has to pass first')
     def test_estimate(self):
-        d = data.generate(N=2, M=2, L=100)
-        m = i.init(d, 2)
-        m = i.iterate(d, m, maxiter=100)
-        [A, B] = [d.generator[k] for k in ['A', 'B']]
+        [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
+        m = i.init(self.d, N)
+        m = i.iterate(self.d, m, maxiter=1000)
 
-        if not np.allclose(A, m.A, atol=config.eps):
-            self.fail('Estimated transition matrix diverges from generator:\nA:\n' + str(A) + '\nm.A:\n' + str(m.A))
-        if not np.allclose(B, m.B, atol=config.eps):
-            self.fail('Estimated emission matrix diverges from generator\nB:\n' + str(B) + '\nm.B\n' + str(m.B))
+        with self.subTest('Test prior'):
+            if not np.allclose(p, m.p, atol=config.eps):
+                self.fail('Estimated prior diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
+        with self.subTest('Test transition'):
+            if not np.allclose(A, m.A, atol=config.eps):
+                self.fail('Estimated transition matrix diverges from generator:\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
+        with self.subTest('Test emission'):
+            if not np.allclose(B, m.B, atol=config.eps):
+                self.fail('Estimated emission matrix diverges from generator\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
 
 if __name__ == '__main__':
     ut.main()
