@@ -27,7 +27,7 @@ def load(filename: str = ''):
     return Data(M=M, L=L, Y=Y)
 
 
-def generate(N: int=4, M: int=10, L: int=1000) -> Data:
+def generate(N: int=4, M: int=10, L: int=1000, p=None, A=None, B=None) -> Data:
     """
         Constructs a random model and generates data using it.
         Returns a Data object with a special dictionary containing the model parameters for verification.
@@ -37,9 +37,17 @@ def generate(N: int=4, M: int=10, L: int=1000) -> Data:
             :param L: Number of emissions generated
     """
 
-    p = np.random.random((1, N))  # Careful, this needs reshaping/extraction
-    A = np.random.random((N, N))
-    B = np.random.random((N, M))
+    if p is None:
+        p = np.random.random((1, N))  # Careful, this needs reshaping/extraction
+    else:
+        p = p.reshape((1, N))
+    if A is None:
+        A = np.random.random((N, N))
+    if B is None:
+        B = np.random.random((N, M))
+    assert (p.shape == (1, N) and A.shape == (N, N) and B.shape == (N, M)), \
+        'Wrong shape for initial parameters (N = {0}, M = {1}):\np:{2}\nA:{3}\nB:{4}'.format(N, M, p.shape, A.shape, B.shape)
+
     Y = np.ndarray((L, ))
     Q = np.ndarray((L, ))
     # Normalize probabilities (make row-stochastic)
