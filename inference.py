@@ -130,11 +130,16 @@ def gammas(d: Data, m: Model) -> Model:
 def estimate(d: Data, m: Model) -> Model:
     assert (hasattr(m, 'gamma') and hasattr(m, 'digamma'))
 
+    # \sum_{t=0}^{L-1} ɣ(t, i) = Expected number of times that state i is visited
+    e_visited = m.gamma.sum(axis=0)[:, None]
+    # \sum_{t=0}^{L-2} ɣ(t, i) = Expected number of transitions made *from* state i
+    e_transitions_from = m.gamma[:-1, :].sum(axis=0)[:, None]
+
     # Re-estimate π
     m.p = np.copy(m.gamma[0])
 
     # Re-estimate transition matrix A
-    m.A = m.digamma.sum(axis=0) / m.gamma.sum(axis=0)[:, None]
+    m.A = m.digamma[:-1, :, :].sum(axis=0) / e_transitions_from
 
     # Re-estimate emission matrix B FIXME! This is going to be sloooooow!
     m.B.fill(0.)
@@ -142,7 +147,8 @@ def estimate(d: Data, m: Model) -> Model:
         for k in range(0, d.M):
             for t in range(0, d.L - 1):
                 m.B[j, k] += m.gamma[t, j] if d.Y[t] == k else 0.
-    m.B /= m.gamma.sum(axis=0)[:, None]
+
+    m.B /= e_visited
 
     # Compute (log) likelihood of the observed emissions under the current model parameters
     m.ll = - np.log(m.c).sum()
