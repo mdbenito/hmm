@@ -9,13 +9,12 @@ class Model:
     """
     Model attributes and data:
         N = Number of states in the model
-        Q = { q_0, ..., q_{N-1} } = possible states of the Markov process
         X = [X_0, ..., X_{L-1}] = chain of states
         Y = [Y_0, ..., Y_{L-1}] = observed emissions
 
     Model parameters:
         A = State transition matrix (NxN): A[i,j] = Prob(X_{t+1} = j | X_t = i)
-        B = Observation probability matrix (NxM): B(q, y) = Prob(Y_t = y | X_t = q)
+        B = Observation probability matrix (NxM): B(j, k) = Prob(Y_t = k | X_t = j)
             TODO: check whether usage pattern for B makes the transpose a more sensible choice
         p = Prior distribution for the initial state
 
@@ -138,9 +137,9 @@ def estimate(d: Data, m: Model) -> Model:
     assert (hasattr(m, 'gamma') and hasattr(m, 'digamma'))
 
     # \sum_{t=0}^{L-1} ɣ(t, i) = Expected number of times that state i is visited
-    e_visited = m.gamma.sum(axis=0)[:, None]
+    e_visited = m.gamma.sum(axis=0).reshape((m.N, 1))
     # \sum_{t=0}^{L-2} ɣ(t, i) = Expected number of transitions made *from* state i
-    e_transitions_from = m.gamma[:-1, :].sum(axis=0)[:, None]
+    e_transitions_from = m.gamma[:-1, :].sum(axis=0).reshape((m.N, 1))
 
     # Re-estimate π
     m.p = np.copy(m.gamma[0])
@@ -189,7 +188,7 @@ def iterate(d: Data, m: Model=None, maxiter=10) -> Model:
 
 def viterbi_path(d: Data, m: Model) -> np.ndarray:
     """
-    Returns the sequence of states maximizing the expected number of correct states.
+    TODO: Returns the sequence of states maximizing the expected number of correct states.
     """
 
     path = np.ndarray((d.L, ))
