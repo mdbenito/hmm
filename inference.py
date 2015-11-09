@@ -3,7 +3,7 @@ import numpy as np
 from data import Data
 from utils import is_row_stochastic
 from time import time
-
+import config
 
 class Model:
     """
@@ -180,7 +180,7 @@ def iterate(d: Data, m: Model=None, maxiter=10) -> Model:
         end = time()
 
         it += 1
-        run = it <= maxiter and m.ll > ll  # and not np.isclose(m.ll, ll, atol=1e-10)  # This isn't doing what I expect
+        run = it <= maxiter and m.ll > ll and not np.isclose(m.ll, ll, atol=config.eps) # This isn't doing what I expect
         ll = m.ll
         print("run in {:.4}s with likelihood = {:.8}".format(end - start, ll))
     return m

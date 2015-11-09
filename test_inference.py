@@ -44,20 +44,20 @@ class TestMethods(ut.TestCase):
     def test_estimate_simple(self):
         N = 2
         p = np.array([1, 0])
-        A = np.array([[0.9999, 0.0001], [0.0001, 0.9999]])
+        A = np.array([[0.1, 0.9], [0.1, 0.9]])
         B = np.array([[1, 0], [0, 1]])
-        d = data.generate(N=N, M=2, L=100, p=p, A=A, B=B)
+        d = data.generate(N=N, M=2, L=1000, p=p, A=A, B=B)
         m = i.init(d, N)
         m = i.iterate(d, m, maxiter=1000)
 
         with self.subTest('Test prior'):
-            if not np.allclose(p, m.p, atol=config.eps):
+            if not np.allclose(p, m.p, atol=config.test_eps):
                 self.fail('Estimated prior diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
         with self.subTest('Test transition'):
-            if not np.allclose(A, m.A, atol=config.eps):
+            if not np.allclose(A, m.A, atol=config.test_eps):
                 self.fail('Estimated transition matrix diverges from generator:\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
         with self.subTest('Test emission'):
-            if not np.allclose(B, m.B, atol=config.eps):
+            if not np.allclose(B, m.B, atol=config.test_eps):
                 self.fail('Estimated emission matrix diverges from generator\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
 
     @ut.skip('Basic test has to pass first')
@@ -67,13 +67,13 @@ class TestMethods(ut.TestCase):
         m = i.iterate(self.d, m, maxiter=1000)
 
         with self.subTest('Test prior'):
-            if not np.allclose(p, m.p, atol=config.eps):
+            if not np.allclose(p, m.p, atol=config.test_eps):
                 self.fail('Estimated prior diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
         with self.subTest('Test transition'):
-            if not np.allclose(A, m.A, atol=config.eps):
+            if not np.allclose(A, m.A, atol=config.test_eps):
                 self.fail('Estimated transition matrix diverges from generator:\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
         with self.subTest('Test emission'):
-            if not np.allclose(B, m.B, atol=config.eps):
+            if not np.allclose(B, m.B, atol=config.test_eps):
                 self.fail('Estimated emission matrix diverges from generator\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
 
 if __name__ == '__main__':
