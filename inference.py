@@ -136,10 +136,10 @@ def gammas(d: Data, m: Model) -> Model:
 def estimate(d: Data, m: Model) -> Model:
     assert (hasattr(m, 'gamma') and hasattr(m, 'digamma'))
 
-    # \sum_{t=0}^{L-1} ɣ(t, i) = Expected number of times that state i is visited
-    e_visited = m.gamma.sum(axis=0).reshape((m.N, 1))
     # \sum_{t=0}^{L-2} ɣ(t, i) = Expected number of transitions made *from* state i
     e_transitions_from = m.gamma[:-1, :].sum(axis=0).reshape((m.N, 1))
+    # \sum_{t=0}^{L-1} ɣ(t, i) = Expected number of times that state i is visited
+    # e_visited = e_transitions_from + m.gamma[-1, :].reshape((m.N, 1))
 
     # Re-estimate π
     m.p = np.copy(m.gamma[0])
