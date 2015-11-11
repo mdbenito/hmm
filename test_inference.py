@@ -48,11 +48,11 @@ class TestMethods(ut.TestCase):
         B = np.array([[1, 0], [0, 1]])
         d = data.generate(N=N, M=2, L=1000, p=p, A=A, B=B)
         m = i.init(d, N)
-        m = i.iterate(d, m, maxiter=1000)
+        m = i.iterate(d, m, maxiter=1000, eps=config.test_eps)
 
-        with self.subTest('Test prior'):
+        with self.subTest('Test initial distribution'):
             if not np.allclose(p, m.p, atol=config.test_eps):
-                self.fail('Estimated prior diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
+                self.fail('Estimated initial distribution diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
         with self.subTest('Test transition'):
             if not np.allclose(A, m.A, atol=config.test_eps):
                 self.fail('Estimated transition matrix diverges from generator:\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
@@ -66,9 +66,9 @@ class TestMethods(ut.TestCase):
         m = i.init(self.d, N)
         m = i.iterate(self.d, m, maxiter=1000)
 
-        with self.subTest('Test prior'):
+        with self.subTest('Test initial distribution'):
             if not np.allclose(p, m.p, atol=config.test_eps):
-                self.fail('Estimated prior diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
+                self.fail('Estimated initial distribution diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
         with self.subTest('Test transition'):
             if not np.allclose(A, m.A, atol=config.test_eps):
                 self.fail('Estimated transition matrix diverges from generator:\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
