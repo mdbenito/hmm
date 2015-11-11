@@ -119,17 +119,25 @@ def gammas(d: Data, m: Model) -> Model:
         ɣ(t, i, j) = P(X_t = i, X_{t+1} = j | Y_0, ..., Y_{L-1})
     """
     assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
-    digamma = np.ndarray((d.L - 1, m.N, m.N))
-    gamma = np.ndarray((d.L - 1, m.N))
+
+    #digamma = np.ndarray((d.L - 1, m.N, m.N))
+    #gamma = np.ndarray((d.L - 1, m.N))
 
     for t in range(0, d.L - 1):
         # FIXME: Using column views is going to make this sloooow! Better transpose...
-        digamma[t] = m.alpha[t].reshape(m.N, 1) * (m.A * (m.B[:, d.Y[t+1]] * m.beta[t+1].reshape(m.N, 1)))
-        digamma[t] /= digamma[t].sum()
-        gamma[t] = digamma[t].sum(axis=1)
+        m.digamma[t] = m.alpha[t].reshape(m.N, 1) * (m.A * (m.B[:, d.Y[t+1]] * m.beta[t+1].reshape(m.N, 1)))
+        m.digamma[t] /= m.digamma[t].sum()
+        m.gamma[t] = m.digamma[t].sum(axis=1)
 
-    m.digamma = digamma
-    m.gamma = gamma
+    # TODO: Reimplement __getitem__ to have phantom dimensions(tm)
+    #m.digamma = m.alpha.reshape(d.L, m.N, 1) * \
+    #            (m.A.reshape((d.L, m.N, m.N)) *
+    #             (m.B * m.beta[1:].reshape(d.L-1, m.N, 1)))
+    #m.digamma /= m.digamma.sum(axis=0)
+    #m.gamma = m.digamma.sum(axis=1)
+
+    #m.digamma = digamma
+    #m.gamma = gamma
     return m
 
 
