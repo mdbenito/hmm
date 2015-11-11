@@ -4,6 +4,7 @@ from h5py import File
 
 # Dumb containers to have dot notation instead of the cumbersome dictionary
 # notation. (Python Cookbook §4.8)
+# FIXME Look up class "bunch"
 class Data:
     """
     Contains:
@@ -15,7 +16,7 @@ class Data:
     """
 
     # Hints for the IDE:
-    L = int(); M = int(); Y = np.ndarray((0, 0))
+    L = int(); M = int(); Y = np.ndarray((0, 0), dtype='i2')
 
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
@@ -48,8 +49,8 @@ def generate(N: int=4, M: int=10, L: int=1000, p=None, A=None, B=None) -> Data:
     assert (p.shape == (1, N) and A.shape == (N, N) and B.shape == (N, M)), \
         'Wrong shape for initial parameters (N = {0}, M = {1}):\np:{2}\nA:{3}\nB:{4}'.format(N, M, p.shape, A.shape, B.shape)
 
-    Y = np.ndarray((L, ))
-    Q = np.ndarray((L, ))
+    Y = np.ndarray((L, ), dtype='i2')
+    Q = np.ndarray((L, ), dtype='i2')
     # Normalize probabilities (make row-stochastic)
     [p, A, B] = map(lambda X: X / X.sum(axis=1)[:, None], [p, A, B])
 
