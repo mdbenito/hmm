@@ -165,7 +165,7 @@ def estimate(d: Data, m: Model) -> Model:
     return m
 
 
-def iterate(d: Data, m: Model=None, maxiter=10) -> Model:
+def iterate(d: Data, m: Model=None, maxiter=10, eps=config.eps) -> Model:
     run = True
     ll = - np.inf
     it = 1
@@ -174,15 +174,14 @@ def iterate(d: Data, m: Model=None, maxiter=10) -> Model:
         print('Initializing model...')
         m = init(d)
     while run:
-        print('Iteration {}, '.format(it), end='', flush=True)
         start = time()
         m = reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
         end = time()
-
+        # TODO: Use relative precision
         it += 1
-        run = it <= maxiter and m.ll > ll and not np.isclose(m.ll, ll, atol=config.eps) # This isn't doing what I expect
+        run = it <= maxiter and m.ll >= ll  # and not np.abs(m.ll - ll) < eps  # This isn't doing what I expect
         ll = m.ll
-        print("run in {:.4}s with likelihood = {:.8}".format(end - start, ll))
+        print("Iteration {} run in {:.4}s with likelihood = {:.12}".format(it, end - start, ll))
     return m
 
 
