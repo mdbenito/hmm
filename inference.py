@@ -148,9 +148,9 @@ def estimate(d: Data, m: Model) -> Model:
     m.B.fill(0.)
     for j in range(m.N):
         for k in range(d.M):
-            #for t in range(0, d.L - 1):
-            #m.B[j, k] += m.gamma[t, j] if d.Y[t] == k else 0.  # FIXME: test performance wrt line below
-            m.B[j, k] += m.gamma[d.Y[1:] == k, j].sum(axis=0)
+            # for t in range(0, d.L - 1):
+            #    m.B[j, k] += m.gamma[t, j] if d.Y[t] == k else 0.  # FIXME: test performance wrt line below
+            m.B[j, k] += m.gamma[d.Y[:-1] == k, j].sum(axis=0)
 
     # m.B /= e_visited
     m.B /= m.B.sum(axis=1).reshape((m.N, 1))
