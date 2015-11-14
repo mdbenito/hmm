@@ -1,7 +1,7 @@
 from functools import reduce
 import unittest as ut
 import numpy as np
-import inference as i
+import inference as infer
 import data
 import config
 from utils import is_row_stochastic
@@ -14,7 +14,7 @@ class TestMethods(ut.TestCase):
 
     @ut.skip('Basic test has to pass first')
     def test_init(self):
-        m = i.init(self.d)
+        m = infer.init(self.d)
         for M in [m.p, m.A, m.B]:
             self.assertTrue(is_row_stochastic(M), 'Initial model parameters are not probabilities')
 
@@ -25,21 +25,53 @@ class TestMethods(ut.TestCase):
         with self.subTest('Test emission'):
             self.assertEqual(m.B.shape, (m.N, self.d.M), 'Shapes don\'t match')
 
-    @ut.skip('Basic test has to pass first')
     def test_alpha_pass(self):
-        m = i.init(self.d)
-        m = i.alpha_pass(self.d, m)
-        self.assertEqual(m.alpha.shape, (self.d.L, m.N), 'Shapes don\'t match')
+        m = infer.init(self.d)
+        m = infer.alpha_pass(self.d, m)
 
-    @ut.skip('Basic test has to pass first')
+        with self.subTest('Test shape'):
+            self.assertEqual(m.alpha.shape, (self.d.L, m.N), 'Shapes don\'t match')
+        with self.subTest('Test computation'):
+            alpha = np.ndarray(shape=m.alpha.shape)
+            c = np.zeros_like(m.c)
+            alpha[0] = m.p * m.B[:, self.d.Y[0]]
+            c[0] = 1. / alpha[0].sum()
+            alpha[0] *= c[0]
+            for t in range(1, self.d.L):
+                for i in range(m.N):
+                    alpha[t, i] = 0.0
+                    for j in range(m.N):
+                        alpha[t, i] += alpha[t-1, j] * m.A[j, i]
+                    alpha[t, i] *= m.B[i, self.d.Y[t]]
+                    c[t] += alpha[t, i]
+                c[t] = 1.0 / c[t]
+                alpha[t] *= c[t]
+
+            self.assertTrue(np.allclose(alpha, m.alpha) and np.allclose(c, m.c))
+
     def test_beta_pass(self):
-        m = i.init(self.d)
-        m = i.beta_pass(self.d, m)
-        self.assertEqual(m.beta.shape, (self.d.L, m.N), 'Shapes don\'t match')
+        m = infer.init(self.d)
+        m = infer.alpha_pass(self.d, m)  # FIXME: compute proper scaling in beta_pass instead of relying on alpha_pass
+        m = infer.beta_pass(self.d, m)
+
+        with self.subTest('Test shape'):
+            self.assertEqual(m.beta.shape, (self.d.L, m.N), 'Shapes don\'t match')
+
+        with self.subTest('Test computation'):
+            beta = np.ndarray(shape=m.beta.shape)
+            beta[self.d.L - 1] = m.c[self.d.L - 1]
+            for t in range(self.d.L-2, -1, -1):
+                for i in range(m.N):
+                    beta[t, i] = 0.0
+                    for j in range(m.N):
+                        beta[t, i] += m.A[i, j] * m.B[j, self.d.Y[t+1]] * beta[t+1, j]
+                    beta[t, i] *= m.c[t]
+
+            self.assertTrue((np.allclose(beta, m.beta)))
 
     @ut.skip('Basic test has to pass first')
     def test_gammas(self):
-        m = reduce(lambda x, f: f(self.d, x), [i.alpha_pass, i.beta_pass, i.gammas, i.estimate], i.init(self.d))
+        m = reduce(lambda x, f: f(self.d, x), [infer.alpha_pass, infer.beta_pass, infer.gammas, infer.estimate], infer.init(self.d))
         with self.subTest('Test gamma'):
             self.assertEqual(m.gamma.shape, (self.d.L-1, m.N), 'Shapes don\'t match')
         with self.subTest('Test digamma'):
@@ -51,8 +83,8 @@ class TestMethods(ut.TestCase):
         A = np.array([[0.1, 0.9], [0.1, 0.9]])
         B = np.array([[1, 0], [0, 1]])
         d = data.generate(N=N, M=2, L=1000, p=p, A=A, B=B)
-        m = i.init(d, N)
-        m = i.iterate(d, m, maxiter=1000, eps=config.test_eps)
+        m = infer.init(d, N)
+        m = infer.iterate(d, m, maxiter=1000, eps=config.test_eps)
 
         with self.subTest('Test initial distribution'):
             if not np.allclose(p, m.p, atol=config.test_eps):
@@ -67,8 +99,8 @@ class TestMethods(ut.TestCase):
     @ut.skip('Basic test has to pass first')
     def test_estimate(self):
         [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
-        m = i.init(self.d, N)
-        m = i.iterate(self.d, m, maxiter=1000)
+        m = infer.init(self.d, N)
+        m = infer.iterate(self.d, m, maxiter=1000)
 
         with self.subTest('Test initial distribution'):
             if not np.allclose(p, m.p, atol=config.test_eps):
