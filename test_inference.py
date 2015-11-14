@@ -17,7 +17,7 @@ class TestMethods(ut.TestCase):
         for M in [m.p, m.A, m.B]:
             self.assertTrue(is_row_stochastic(M), 'Initial model parameters are not probabilities')
 
-        with self.subTest('Test prior'):
+        with self.subTest('Test initial distribution'):
             self.assertEqual(m.p.shape, (m.N, ), 'Shapes don\'t match')
         with self.subTest('Test transition'):
             self.assertEqual(m.A.shape, (m.N, m.N), 'Shapes don\'t match')
