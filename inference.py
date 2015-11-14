@@ -5,6 +5,7 @@ from utils import is_row_stochastic
 from time import time
 import config
 
+
 class Model:
     """
     Model attributes and data:
@@ -53,7 +54,12 @@ def init(d: Data, N: int=4) -> Model:
     # Normalize probabilities (make row-stochastic)
     [p, A, B] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A, B])
 
-    return Model(N=N, p=p[0], A=A, B=B)  # BT=np.copy(B.T)
+    return Model(N=N, p=p[0], A=A, B=B,
+                 alpha=np.ndarray((d.L, N)),
+                 c=np.ndarray((d.L,)),  # Scaling for α (and β if not concurrently run) / computation of log likelihood
+                 beta=np.ndarray((d.L, N)),
+                 e=np.ndarray((d.L, )),  # Scaling of β (used if alpha_pass and beta_pass are run concurrently)
+                 gamma=np.ndarray((d.L - 1, N)), digamma=np.ndarray((d.L - 1, N, N)))
 
 
 def alpha_pass(d: Data, m: Model) -> Model:
@@ -63,26 +69,18 @@ def alpha_pass(d: Data, m: Model) -> Model:
     """
 
     # Compute α_0
-    c = np.ndarray((d.L,))
-    alpha = np.ndarray((d.L, m.N))
-    alpha[0] = m.p * m.B[:, d.Y[0]]  # α_0(i) = π_i * P(Emission = Y[0] | State = i) = π_i * B(i, Y[0])
-    # Using B^t:
-    # alpha[0] = m.p * m.BT[d.Y[0], :]
+    m.alpha[0] = m.p * m.B[:, d.Y[0]]  # α_0(i) = π_i * P(Emission = Y[0] | State = i) = π_i * B(i, Y[0])
 
     # Rescale α_0
-    c[0] = 1. / alpha[0].sum()
-    alpha[0] *= c[0]
+    m.c[0] = 1. / m.alpha[0].sum()
+    m.alpha[0] *= m.c[0]
 
     # Compute α_t, rescaling at each stage
     for t in range(1, d.L):
-        alpha[t] = (alpha[t - 1] @ m.A) * m.B[:, d.Y[t]]
-        c[t] = 1. / alpha[t].sum()
-        alpha[t] *= c[t]
+        m.alpha[t] = (m.alpha[t - 1] @ m.A) * m.B[:, d.Y[t]]
+        m.c[t] = 1. / m.alpha[t].sum()
+        m.alpha[t] *= m.c[t]
 
-    m.alpha = alpha  # Should I copy?
-
-    # Store scaling for use in beta_pass / computation of log likelihood of observations
-    m.c = c
     return m
 
 
@@ -94,21 +92,17 @@ def beta_pass(d: Data, m: Model) -> Model:
     Rescaling is done with a new variable instead of using m.c, in order to enable parallel execution.
     """
     # assert(hasattr(m, 'c'))
-    beta = np.ndarray((d.L, m.N))
-    e = np.ndarray((d.L, ))
 
     # Set β_{L-1}[i]=1*c[L-1]
-    beta[d.L - 1].fill(1./d.L)
-    e[d.L - 1] = 1. / d.L
+    m.beta[d.L - 1].fill(1./d.L)
+    m.e[d.L - 1] = 1. / d.L
     # beta[d.L-1] = m.c[d.L-1]
     for t in range(d.L - 2, -1, -1):
-        beta[t] = m.A @ (m.B[:, d.Y[t + 1]] * beta[t + 1])
-        e[t] = 1. / beta[t].sum()
-        beta[t] *= e[t]
+        m.beta[t] = m.A @ (m.B[:, d.Y[t + 1]] * m.beta[t + 1])
+        m.e[t] = 1. / m.beta[t].sum()
+        m.beta[t] *= m.e[t]
         # f = e - m.c
         # beta[t] *= m.c[t]
-
-    m.beta = beta
     return m
 
 
