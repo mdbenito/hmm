@@ -135,15 +135,23 @@ def estimate(d: Data, m: Model) -> Model:
     assert (hasattr(m, 'gamma') and hasattr(m, 'digamma'))
 
     # \sum_{t=0}^{L-2} ɣ(t, i) = Expected number of transitions made *from* state i
-    e_transitions_from = m.gamma[:-1, :].sum(axis=0).reshape((m.N, 1))
+    e_transitions_from = m.gamma[:-1, :].sum(axis=0)
     # \sum_{t=0}^{L-1} ɣ(t, i) = Expected number of times that state i is visited
-    e_visited = e_transitions_from + m.gamma[-1, :].reshape((m.N, 1))
+    e_visited = e_transitions_from + m.gamma[-1, :]
 
     # Re-estimate π
-    m.p = np.copy(m.gamma[0])
+    m.p = np.copy(m.gamma[0].reshape(1, m.N))
 
-    # Re-estimate transition matrix A
-    m.A = m.digamma[:-1, :, :].sum(axis=0) / e_transitions_from
+    # Re-estimate transition matrix A FIXME: this is wrong!
+    m.A = m.digamma[:-1, :, :].sum(axis=0) / e_transitions_from.reshape((m.N, 1))
+    # for i in range(m.N):
+    #     for j in range(m.N):
+    #         num = 0.0
+    #         den = 0.0
+    #         for t in range(d.L - 1):
+    #             num += m.digamma[t, i, j]
+    #             den += m.gamma[t, i]
+    #         m.A[i, j] = num / den
 
     # Re-estimate emission matrix B FIXME! This is going to be sloooooow!
     m.B.fill(0.)
@@ -153,19 +161,11 @@ def estimate(d: Data, m: Model) -> Model:
             #    m.B[j, k] += m.gamma[t, j] if d.Y[t] == k else 0.  # FIXME: test performance wrt line below
             m.B[j, k] += m.gamma[d.Y[:-1] == k, j].sum(axis=0)
 
-    m.B /= e_visited
+    m.B /= e_visited.reshape((m.N, 1))
     # m.B /= m.B.sum(axis=1).reshape((m.N, 1))  # This should be equivalent to  /= e_visited, and it's O(N) as well.
 
     # Compute (log) likelihood of the observed emissions under the current model parameters
     m.ll = - np.log(m.c).sum()
-
-    # Sanity checks
-    assert (is_row_stochastic(m.A) and is_row_stochastic(m.B) and is_row_stochastic(m.p))
-    # Did we accidentally share data somewhere?
-    assert (m.p.base is None)
-    assert (m.A.base is None)
-    assert (m.B.base is None)
-    assert (m.digamma.base is None)
 
     return m
 
@@ -178,7 +178,7 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin) -> 
     if m is None:
         print('Initializing model...')
         m = init(d)
-        start = time()
+    start = time()
     while run:
         m = reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
         it += 1
