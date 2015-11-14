@@ -170,7 +170,7 @@ def estimate(d: Data, m: Model) -> Model:
     return m
 
 
-def iterate(d: Data, m: Model=None, maxiter=10, eps=config.eps) -> Model:
+def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin) -> Model:
     run = True
     ll = - np.inf
     it = 1
@@ -178,15 +178,18 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.eps) -> Model:
     if m is None:
         print('Initializing model...')
         m = init(d)
-    while run:
         start = time()
+    while run:
         m = reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
-        end = time()
-        # TODO: Use relative precision
         it += 1
-        run = it <= maxiter and m.ll >= ll  # and not np.abs(m.ll - ll) < eps  # This isn't doing what I expect
+        delta = 100.0 * (m.ll - ll) / np.abs(ll) if ll > -np.inf else np.inf
+        run = it <= maxiter and delta >= eps
         ll = m.ll
-        print("Iteration {} run in {:.4}s with likelihood = {:.12}".format(it, end - start, ll))
+        if it % 10 == 0:
+            end = time()
+            print("Iteration {} finishes after {:.4}s with an increase of {:.3}% in the likelihood".
+                  format(it, end - start, delta))
+            start = time()
     return m
 
 
