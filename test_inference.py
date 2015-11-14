@@ -12,7 +12,6 @@ class TestMethods(ut.TestCase):
         super().__init__(methodName)
         self.d = data.generate(N=4, M=8, L=1000)
 
-    @ut.skip('Basic test has to pass first')
     def test_init(self):
         m = infer.init(self.d)
         for M in [m.p, m.A, m.B]:
@@ -84,14 +83,50 @@ class TestMethods(ut.TestCase):
             self.assertEqual(m.digamma.shape, (self.d.L-1, m.N, m.N), 'Shapes don\'t match')
             self.assertTrue(np.allclose(digamma, m.digamma), 'Computation is wrong')
 
-    def test_estimate_simple(self):
+    def test_estimate(self):
+        m = reduce(lambda x, f: f(self.d, x), [infer.alpha_pass, infer.beta_pass, infer.gammas, infer.estimate],
+                   infer.init(self.d))
+        # Sanity checks
+        self.assertTrue(is_row_stochastic(m.A) and is_row_stochastic(m.B) and is_row_stochastic(m.p))
+        # Did we accidentally share data somewhere?
+        self.assertTrue(m.p.base is None)
+        self.assertTrue(m.A.base is None)
+        self.assertTrue(m.B.base is None)
+        self.assertTrue(m.digamma.base is None)
+
+        with self.subTest('Test transition matrix'):
+            A = np.ndarray(shape=m.A.shape)
+            for i in range(m.N):
+                for j in range(m.N):
+                    num = 0.0
+                    den = 0.0
+                    for t in range(self.d.L - 1):
+                        num += m.digamma[t, i, j]
+                        den += m.gamma[t, i]
+                    A[i, j] = num / den
+            self.assertTrue(np.allclose(A, m.A), 'Wrong estimation')
+
+        with self.subTest('Test emission matrix'):
+            B = np.ndarray(shape=m.B.shape)
+            for i in range(m.N):
+                for k in range(self.d.M):
+                    num = 0.0
+                    den = 0.0
+                    for t in range(self.d.L - 1):
+                        if self.d.Y[t] == k:
+                            num += m.gamma[t, i]
+                        den += m.gamma[t, i]
+                    B[i, k] = num / den
+            self.assertTrue(np.allclose(B, m.B), 'Wrong estimation')
+
+    def test_iterate_simple(self):
         N = 2
         p = np.array([1, 0])
         A = np.array([[0.1, 0.9], [0.1, 0.9]])
         B = np.array([[1, 0], [0, 1]])
         d = data.generate(N=N, M=2, L=1000, p=p, A=A, B=B)
         m = infer.init(d, N)
-        m = infer.iterate(d, m, maxiter=1000, eps=config.test_eps)
+        m = infer.iterate(d, m, maxiter=1000)
 
         with self.subTest('Test initial distribution'):
             if not np.allclose(p, m.p, atol=config.test_eps):
@@ -103,8 +138,8 @@ class TestMethods(ut.TestCase):
             if not np.allclose(B, m.B, atol=config.test_eps):
                 self.fail('Estimated emission matrix diverges from generator\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
 
-    @ut.skip('Basic test has to pass first')
-    def test_estimate(self):
+    @ut.skip('Basic tests have to pass first')
+    def test_iterate(self):
         [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
         m = infer.init(self.d, N)
         m = infer.iterate(self.d, m, maxiter=1000)
