@@ -89,20 +89,25 @@ def beta_pass(d: Data, m: Model) -> Model:
     Computes
         β_t(i) = β(t, i) = P(Y_{t+1} = y_{t+1}, ..., Y_{L-1} = y_{l-1} | X_t = i)
 
-    Rescaling is done with a new variable instead of using m.c, in order to enable parallel execution.
+    TODO: Rescaling can be done with a new variable instead of using m.c, in order to enable parallel execution.
     """
     # assert(hasattr(m, 'c'))
 
     # Set β_{L-1}[i]=1*c[L-1]
-    m.beta[d.L - 1].fill(1./d.L)
-    m.e[d.L - 1] = 1. / d.L
-    # beta[d.L-1] = m.c[d.L-1]
+    m.beta[d.L-1] = m.c[d.L-1]
+
+    # m.beta[d.L - 1].fill(1./d.L)
+    # m.e[d.L - 1] = 1. / d.L
+
     for t in range(d.L - 2, -1, -1):
-        m.beta[t] = m.A @ (m.B[:, d.Y[t + 1]] * m.beta[t + 1])
-        m.e[t] = 1. / m.beta[t].sum()
-        m.beta[t] *= m.e[t]
-        # f = e - m.c
-        # beta[t] *= m.c[t]
+        # m.beta[t] = m.A @ (m.B[:, d.Y[t + 1]] * m.beta[t + 1])
+        m.beta[t] = 0.0
+        for i in range(m.N):
+            m.beta[t, i] += (m.A.T[:, i] * m.B.T[d.Y[t + 1], :] * m.beta[t + 1]).sum(axis=0)
+        m.beta[t] *= m.c[t]
+        # m.e[t] = 1. / m.beta[t].sum()
+        # m.beta[t] *= m.e[t]
+
     return m
 
 
@@ -114,18 +119,14 @@ def gammas(d: Data, m: Model) -> Model:
     """
     assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
 
-    for t in range(0, d.L - 1):
-        # FIXME: Using column views is going to make this sloooow! Better transpose...
-        m.digamma[t] = m.alpha[t].reshape(m.N, 1) * (m.A * (m.B[:, d.Y[t+1]] * m.beta[t+1].reshape(m.N, 1)))
-        m.digamma[t] /= m.digamma[t].sum()
-        m.gamma[t] = m.digamma[t].sum(axis=1)
+    V = m.B.T[d.Y[1:]] * m.beta[1:]
+    for t in range(d.L - 1):
+        m.digamma[t] = m.alpha[t].reshape((m.N, 1)) * (m.A * V[t])
 
-    # TODO: Reimplement __getitem__ to have phantom dimensions(tm)
-    #m.digamma = m.alpha.reshape(d.L, m.N, 1) * \
-    #            (m.A.reshape((d.L, m.N, m.N)) *
-    #             (m.B * m.beta[1:].reshape(d.L-1, m.N, 1)))
-    #m.digamma /= m.digamma.sum(axis=0)
-    #m.gamma = m.digamma.sum(axis=1)
+    # FIXME: why does each matrix digamma[t,·, ·] sum to one?
+    assert (np.allclose(1.0, m.digamma.sum(axis=(1, 2))))  # Just in case it's not always true...
+    # m.digamma /= m.digamma.sum(axis=(1, 2)).reshape(d.L-1, 1, 1)
+    m.gamma = m.digamma.sum(axis=2)
 
     return m
 
