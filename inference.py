@@ -120,9 +120,6 @@ def gammas(d: Data, m: Model) -> Model:
     """
     assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
 
-    #digamma = np.ndarray((d.L - 1, m.N, m.N))
-    #gamma = np.ndarray((d.L - 1, m.N))
-
     for t in range(0, d.L - 1):
         # FIXME: Using column views is going to make this sloooow! Better transpose...
         m.digamma[t] = m.alpha[t].reshape(m.N, 1) * (m.A * (m.B[:, d.Y[t+1]] * m.beta[t+1].reshape(m.N, 1)))
@@ -136,8 +133,6 @@ def gammas(d: Data, m: Model) -> Model:
     #m.digamma /= m.digamma.sum(axis=0)
     #m.gamma = m.digamma.sum(axis=1)
 
-    #m.digamma = digamma
-    #m.gamma = gamma
     return m
 
 
@@ -169,8 +164,13 @@ def estimate(d: Data, m: Model) -> Model:
     # Compute (log) likelihood of the observed emissions under the current model parameters
     m.ll = - np.log(m.c).sum()
 
-    # Sanity check
+    # Sanity checks
     assert (is_row_stochastic(m.A) and is_row_stochastic(m.B) and is_row_stochastic(m.p))
+    # Did we accidentally share data somewhere?
+    assert (m.p.base is None)
+    assert (m.A.base is None)
+    assert (m.B.base is None)
+    assert (m.digamma.base is None)
 
     return m
 
