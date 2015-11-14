@@ -12,6 +12,7 @@ class TestMethods(ut.TestCase):
         super().__init__(methodName)
         self.d = data.generate(N=4, M=8, L=1000)
 
+    @ut.skip('Basic test has to pass first')
     def test_init(self):
         m = i.init(self.d)
         for M in [m.p, m.A, m.B]:
@@ -24,16 +25,19 @@ class TestMethods(ut.TestCase):
         with self.subTest('Test emission'):
             self.assertEqual(m.B.shape, (m.N, self.d.M), 'Shapes don\'t match')
 
+    @ut.skip('Basic test has to pass first')
     def test_alpha_pass(self):
         m = i.init(self.d)
         m = i.alpha_pass(self.d, m)
         self.assertEqual(m.alpha.shape, (self.d.L, m.N), 'Shapes don\'t match')
 
+    @ut.skip('Basic test has to pass first')
     def test_beta_pass(self):
         m = i.init(self.d)
         m = i.beta_pass(self.d, m)
         self.assertEqual(m.beta.shape, (self.d.L, m.N), 'Shapes don\'t match')
 
+    @ut.skip('Basic test has to pass first')
     def test_gammas(self):
         m = reduce(lambda x, f: f(self.d, x), [i.alpha_pass, i.beta_pass, i.gammas, i.estimate], i.init(self.d))
         with self.subTest('Test gamma'):
