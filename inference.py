@@ -170,13 +170,13 @@ def estimate(d: Data, m: Model) -> Model:
     return m
 
 
-def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin) -> Model:
+def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, verbose=False) -> Model:
     run = True
     ll = - np.inf
     it = 1
-    print('Running (maxiter = ' + str(maxiter) + '):')
+    if verbose: print('\nRunning up to maxiter = {0} with threshold {1}%:'.format(maxiter, eps))
     if m is None:
-        print('Initializing model...')
+        if verbose: print('Initializing model...')
         m = init(d)
     start = time()
     while run:
