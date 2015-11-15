@@ -143,15 +143,15 @@ def estimate(d: Data, m: Model) -> Model:
     m.p = np.copy(m.gamma[0].reshape(1, m.N))
 
     # Re-estimate transition matrix A FIXME: this is wrong!
-    m.A = m.digamma[:-1, :, :].sum(axis=0) / e_transitions_from.reshape((m.N, 1))
-    # for i in range(m.N):
-    #     for j in range(m.N):
-    #         num = 0.0
-    #         den = 0.0
-    #         for t in range(d.L - 1):
-    #             num += m.digamma[t, i, j]
-    #             den += m.gamma[t, i]
-    #         m.A[i, j] = num / den
+    # m.A = m.digamma[:-1, :, :].sum(axis=0) / e_transitions_from.reshape((m.N, 1))
+    for i in range(m.N):
+        for j in range(m.N):
+            num = 0.0
+            den = 0.0
+            for t in range(d.L - 1):
+                num += m.digamma[t, i, j]
+                den += m.gamma[t, i]
+            m.A[i, j] = num / den
 
     # Re-estimate emission matrix B FIXME! This is going to be sloooooow!
     m.B.fill(0.)
