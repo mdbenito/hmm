@@ -60,4 +60,4 @@ def generate(N: int=4, M: int=10, L: int=1000, p=None, A=None, B=None) -> Data:
         Q[t] = np.random.choice(N, p=A[Q[t-1]])  # Jump to next state
         Y[t] = np.random.choice(M, p=B[Q[t]])  # Emmit
 
-    return Data(M=M, L=L, Y=Y, generator={'p': p[0], 'A': A, 'B': B, 'Q': Q})
+    return Data(M=M, L=L, Y=Y, generator={'N': N, 'p': p[0], 'A': A, 'B': B, 'Q': Q})
