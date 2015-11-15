@@ -187,8 +187,15 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
         ll = m.ll
         if it % 10 == 0:
             end = time()
-            print("Iteration {} finishes after {:.4}s with an increase of {:.3}% in the likelihood".
-                  format(it, end - start, delta))
+            if verbose:
+                done = 100*it/maxiter
+                left = 100-done
+                print('\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, log likelihood delta {5:.3}%'.
+                      format('■' * np.floor(done/2), '·' * np.ceil(left/2), int(done), it, end-start, delta,
+                             it_width=int(np.ceil(np.log10(maxiter)))),
+                      end='')
+                # print("Iteration {} finishes after {:.4}s with an increase of {:.3}% in the likelihood".
+                #               format(it, end - start, delta))
             start = time()
     return m
 
