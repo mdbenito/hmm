@@ -1,8 +1,7 @@
 from functools import reduce
-import numpy as np
 from data import Data
-from utils import is_row_stochastic
 from time import time
+import numpy as np
 import config
 
 
@@ -54,7 +53,7 @@ def init(d: Data, N: int=4) -> Model:
     # Normalize probabilities (make row-stochastic)
     [p, A, B] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A, B])
 
-    return Model(N=N, p=p[0], A=A, B=B,
+    return Model(N=N, p=p.reshape(N, ), A=A, B=B,
                  alpha=np.ndarray((d.L, N)),
                  c=np.ndarray((d.L,)),  # Scaling for α (and β if not concurrently run) / computation of log likelihood
                  beta=np.ndarray((d.L, N)),
@@ -140,7 +139,7 @@ def estimate(d: Data, m: Model) -> Model:
     e_visited = e_transitions_from + m.gamma[-1, :]
 
     # Re-estimate π
-    m.p = np.copy(m.gamma[0].reshape(1, m.N))
+    m.p = np.copy(m.gamma[0].reshape((m.N,)))
 
     # Re-estimate transition matrix A FIXME: this is wrong!
     # m.A = m.digamma[:-1, :, :].sum(axis=0) / e_transitions_from.reshape((m.N, 1))
@@ -179,6 +178,7 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
         if verbose: print('Initializing model...')
         m = init(d)
     start = time()
+    total = 0
     while run:
         m = reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
         it += 1
@@ -187,6 +187,7 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
         ll = m.ll
         if it % 10 == 0:
             end = time()
+            total += end
             if verbose:
                 done = 100*it/maxiter
                 left = 100-done
@@ -197,6 +198,8 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
                 # print("Iteration {} finishes after {:.4}s with an increase of {:.3}% in the likelihood".
                 #               format(it, end - start, delta))
             start = time()
+    if verbose:
+        print('\nTotal running time: {:>8.4}s'.format(total))
     return m
 
 
