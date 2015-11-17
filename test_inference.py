@@ -128,18 +128,14 @@ class TestMethods(ut.TestCase):
         m = infer.init(d, N)
         m = infer.iterate(d, m, maxiter=1500, verbose=True)
 
-        permutation = [1, 0]  # Account for the arbitrariness of label assignment
         with self.subTest('Test initial distribution'):
-            if (not np.allclose(p, m.p, atol=config.test_eps) and
-                    not np.allclose(p[permutation], m.p, atol=config.test_eps)):
+            if not np.allclose(p, m.p, atol=config.test_eps):
                 self.fail('Estimated initial distribution diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
         with self.subTest('Test transition'):
-            if (not np.allclose(A, m.A, atol=config.test_eps) and
-                    not np.allclose(A[:, permutation], m.A, atol=config.test_eps)):
+            if not np.allclose(A, m.A, atol=config.test_eps):
                 self.fail('Estimated transition matrix diverges from generator:\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
         with self.subTest('Test emission'):
-            if (not np.allclose(B, m.B, atol=config.test_eps) and
-                    not np.allclose(B[:, permutation], m.B, atol=config.test_eps)):
+            if not np.allclose(B, m.B, atol=config.test_eps):
                 self.fail('Estimated emission matrix diverges from generator\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
 
     @ut.skip('Basic tests have to pass first')
