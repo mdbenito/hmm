@@ -178,7 +178,7 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
         if verbose: print('Initializing model...')
         m = init(d)
     start = time()
-    total = 0
+    total = 0.
     while run:
         m = reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
         it += 1
@@ -200,7 +200,7 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
                 #               format(it, end - start, delta))
             start = time()
     if verbose:
-        print('\nTotal running time: {:>8.4}s'.format(total))
+        print('\nTotal running time: {:>8.4}s'.format(total-start))
     return m
 
 
