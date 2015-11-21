@@ -10,7 +10,8 @@ from utils import is_row_stochastic
 class TestMethods(ut.TestCase):
     def __init__(self, methodName='runTest'):
         super().__init__(methodName)
-        self.d = data.generate(N=4, M=8, L=1000)
+        self.d = data.generate(N=3, M=4, L=4000)
+        np.random.seed(2015)
 
     def test_init(self):
         m = infer.init(self.d)
