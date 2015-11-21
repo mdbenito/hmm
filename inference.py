@@ -182,7 +182,8 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
     while run:
         m = reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
         it += 1
-        delta = 100.0 * (m.ll - ll) / np.abs(ll) if ll > -np.inf else np.inf
+        avg = (np.abs(ll) + np.abs(m.ll) + config.eps) / 2
+        delta = 100.0 * (m.ll - ll) / avg if avg != np.inf else np.inf
         run = it <= maxiter and delta >= eps
         ll = m.ll
         if it % 10 == 0:
