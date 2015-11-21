@@ -121,11 +121,19 @@ class TestMethods(ut.TestCase):
             self.assertTrue(np.allclose(B, m.B), 'Wrong estimation')
 
     def test_iterate_simple(self):
-        N = 2
-        p = np.array([1, 0])
-        A = np.array([[0.1, 0.9], [0.1, 0.9]])
-        B = np.array([[1, 0], [0, 1]])
-        d = data.generate(N=N, M=2, L=1000, p=p, A=A, B=B)
+        # N = 2
+        # M = 2
+        # p = np.array([1, 0])
+        # A = np.array([[0.1, 0.9], [0.1, 0.9]])
+        # B = np.array([[1, 0], [0, 1]])
+        #
+        N = 3
+        M = 2
+        p = np.array([1, 0, 0])
+        A = np.array([[0.1, 0.8, 0.1], [0.1, 0.1, 0.8], [0.8, 0.1, 0.1]])
+        B = np.array([[1, 0], [0, 1], [0, 1]])
+
+        d = data.generate(N=N, M=M, L=1000, p=p, A=A, B=B)
         m = infer.init(d, N)
         m = infer.iterate(d, m, maxiter=1500, verbose=True)
 
@@ -139,11 +147,11 @@ class TestMethods(ut.TestCase):
             if not np.allclose(B, m.B, atol=config.test_eps):
                 self.fail('Estimated emission matrix diverges from generator\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
 
-    @ut.skip('Basic tests have to pass first')
+    @ut.skip('Trying shorter test')
     def test_iterate(self):
         [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
         m = infer.init(self.d, N)
-        m = infer.iterate(self.d, m, maxiter=1000)
+        m = infer.iterate(self.d, m, maxiter=1000, verbose=True)
 
         with self.subTest('Test initial distribution'):
             if not np.allclose(p, m.p, atol=config.test_eps):
