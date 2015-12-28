@@ -29,8 +29,15 @@ class Model:
     """
 
     # Hints for the IDE:
-    A = np.ndarray((0, 0)); B = np.ndarray((0, 0)); p = np.ndarray((0,)); N = int()
-    alpha = np.ndarray((0, 0)); beta = np.ndarray((0, 0)); gamma = np.ndarray((0, 0)); digamma = np.ndarray((0, 0, 0))
+    A = np.ndarray((0, 0))
+    B = np.ndarray((0, 0))
+    p = np.ndarray((0,))
+    N = int()
+    alpha = np.ndarray((0, 0))
+    beta = np.ndarray((0, 0))
+    gamma = np.ndarray((0, 0))
+    digamma = np.ndarray((0, 0, 0))
+    c = np.ndarray((0, 0))
 
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
@@ -55,9 +62,11 @@ def init(d: Data, N: int=4) -> Model:
 
     return Model(N=N, p=p.reshape(N, ), A=A, B=B,
                  alpha=np.ndarray((d.L, N)),
-                 c=np.ndarray((d.L,)),  # Scaling for α (and β if not concurrently run) / computation of log likelihood
+                 # Scaling for α (and β if not concurrently run) / computation of log likelihood
+                 c=np.ndarray((d.L,)),
                  beta=np.ndarray((d.L, N)),
-                 e=np.ndarray((d.L, )),  # Scaling of β (used if alpha_pass and beta_pass are run concurrently)
+                 # Scaling of β (used if alpha_pass and beta_pass are run concurrently)
+                 e=np.ndarray((d.L, )),
                  gamma=np.ndarray((d.L - 1, N)), digamma=np.ndarray((d.L - 1, N, N)))
 
 
@@ -68,7 +77,8 @@ def alpha_pass(d: Data, m: Model) -> Model:
     """
 
     # Compute α_0
-    m.alpha[0] = m.p * m.B[:, d.Y[0]]  # α_0(i) = π_i * P(Emission = Y[0] | State = i) = π_i * B(i, Y[0])
+    # α_0(i) = π_i * P(Emission = Y[0] | State = i) = π_i * B(i, Y[0])
+    m.alpha[0] = m.p * m.B[:, d.Y[0]]
 
     # Rescale α_0
     m.c[0] = 1. / m.alpha[0].sum()
@@ -88,7 +98,8 @@ def beta_pass(d: Data, m: Model) -> Model:
     Computes
         β_t(i) = β(t, i) = P(Y_{t+1} = y_{t+1}, ..., Y_{L-1} = y_{l-1} | X_t = i)
 
-    TODO: Rescaling can be done with a new variable instead of using m.c, in order to enable parallel execution.
+    TODO: Rescaling can be done with a new variable instead of using m.c, in order to enable
+    parallel execution.
     """
     # assert(hasattr(m, 'c'))
 
@@ -157,11 +168,13 @@ def estimate(d: Data, m: Model) -> Model:
     for j in range(m.N):
         for k in range(d.M):
             # for t in range(0, d.L - 1):
-            #    m.B[j, k] += m.gamma[t, j] if d.Y[t] == k else 0.  # FIXME: test performance wrt line below
+            #    m.B[j, k] += m.gamma[t, j] if d.Y[t] == k else 0.
+                # FIXME: test performance wrt line below
             m.B[j, k] += m.gamma[d.Y[:-1] == k, j].sum(axis=0)
 
     m.B /= e_visited.reshape((m.N, 1))
-    # m.B /= m.B.sum(axis=1).reshape((m.N, 1))  # This should be equivalent to  /= e_visited, and it's O(N) as well.
+    # The following should be equivalent to /= e_visited, and it's O(N) as well.
+    # m.B /= m.B.sum(axis=1).reshape((m.N, 1))
 
     # Compute (log) likelihood of the observed emissions under the current model parameters
     m.ll = - np.log(m.c).sum()
@@ -169,7 +182,7 @@ def estimate(d: Data, m: Model) -> Model:
     return m
 
 
-def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, verbose=False) -> Model:
+def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, verbose=False)-> Model:
     run = True
     ll = - np.inf
     it = 1
@@ -190,14 +203,15 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
             end = time()
             total += end
             if verbose:
-                done = 100*it/maxiter
-                left = 100-done
-                print('\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, log likelihood delta {5:.3}%'.
-                      format('■' * np.floor(done/2), '·' * np.ceil(left/2), int(done), it, end-start, delta,
-                             it_width=int(np.ceil(np.log10(maxiter)))),
+                done = 100 * it/maxiter
+                left = 100 - done
+                print('\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, '
+                      'log likelihood delta {5:.3}%'.
+                      format('■' * np.floor(done/2), '·' * np.ceil(left/2), int(done),
+                             it, end-start, delta, it_width=int(np.ceil(np.log10(maxiter)))),
                       end='')
-                # print("Iteration {} finishes after {:.4}s with an increase of {:.3}% in the likelihood".
-                #               format(it, end - start, delta))
+                # print("Iteration {} finishes after {:.4}s with an increase of "
+                #       "{:.3}% in the likelihood".format(it, end - start, delta))
             start = time()
     if verbose:
         print('\nTotal running time: {:>8.4}s'.format(total-start))

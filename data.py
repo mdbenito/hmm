@@ -1,5 +1,5 @@
 import numpy as np
-from h5py import File
+# from h5py import File
 
 
 # Dumb containers to have dot notation instead of the cumbersome dictionary
@@ -16,26 +16,30 @@ class Data:
     """
 
     # Hints for the IDE:
-    L = int(); M = int(); Y = np.ndarray((0, 0), dtype='i2')
+    L = int()
+    M = int()
+    Y = np.ndarray((0, 0), dtype='i2')
+    generator={}
 
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
 
 
-def load(filename: str = ''):
-    with File(filename, 'r') as f:
-        [M, L, Y] = do_stuff()  # ...
-    return Data(M=M, L=L, Y=Y)
+# def load(filename: str = ''):
+#     with File(filename, 'r') as f:
+#         [M, L, Y] = do_stuff()  # ...
+#     return Data(M=M, L=L, Y=Y)
 
 
 def generate(N: int=4, M: int=10, L: int=1000, p=None, A=None, B=None) -> Data:
     """
-        Constructs a random model and generates data using it.
-        Returns a Data object with a special dictionary containing the model parameters for verification.
+    Constructs a random model and generates data using it.
+    Returns a Data object with a special dictionary containing the model parameters for
+    verification.
 
-            :param N: Number of states
-            :param M: Number of possible emissions
-            :param L: Number of emissions generated
+    :param N: Number of states
+    :param M: Number of possible emissions
+    :param L: Number of emissions generated
     """
 
     if p is None:

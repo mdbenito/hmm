@@ -18,7 +18,8 @@ def parse_options(argv):
                 '\t-o, --output-file\tSpecifies the output file\n' + \
                 '\t-t, --run-tests\t\tRun all tests\n'
     try:
-        opts, args = getopt.getopt(argv, 'hti:o:', ['help', 'run-tests', 'input-file=', 'output-file='])
+        opts, args = getopt.getopt(argv, 'hti:o:',
+                                   ['help', 'run-tests', 'input-file=', 'output-file='])
     except getopt.GetoptError:
         print(usage_str)
         sys.exit(2)

@@ -48,7 +48,8 @@ class TestMethods(ut.TestCase):
 
     def test_beta_pass(self):
         m = infer.init(self.d)
-        m = infer.alpha_pass(self.d, m)  # FIXME: compute proper scaling in beta_pass instead of relying on alpha_pass
+        # FIXME: compute proper scaling in beta_pass instead of relying on alpha_pass
+        m = infer.alpha_pass(self.d, m)
         m = infer.beta_pass(self.d, m)
         self.assertEqual(m.beta.shape, (self.d.L, m.N), 'Shapes don\'t match')
 
@@ -63,7 +64,8 @@ class TestMethods(ut.TestCase):
         self.assertTrue((np.allclose(beta, m.beta)), 'Computation is wrong')
 
     def test_gammas(self):
-        m = reduce(lambda x, f: f(self.d, x), [infer.alpha_pass, infer.beta_pass, infer.gammas], infer.init(self.d))
+        m = reduce(lambda x, f: f(self.d, x),
+                   [infer.alpha_pass, infer.beta_pass, infer.gammas], infer.init(self.d))
         gamma = np.zeros_like(m.gamma)
         digamma = np.ndarray(shape=m.digamma.shape)
         for t in range(self.d.L - 1):
@@ -74,7 +76,8 @@ class TestMethods(ut.TestCase):
             for i in range(m.N):
                 gamma[t, i] = 0.0
                 for j in range(m.N):
-                    digamma[t, i, j] = m.alpha[t, i] * m.A[i, j] * m.B[j, self.d.Y[t+1]] * m.beta[t+1, j] / norm
+                    digamma[t, i, j] = m.alpha[t, i] * m.A[i, j] * \
+                                       m.B[j, self.d.Y[t+1]] * m.beta[t+1, j] / norm
                     gamma[t, i] += digamma[t, i, j]
 
         with self.subTest('Test gamma'):
@@ -85,10 +88,12 @@ class TestMethods(ut.TestCase):
             self.assertTrue(np.allclose(digamma, m.digamma), 'Computation is wrong')
 
     def test_estimate(self):
-        m = reduce(lambda x, f: f(self.d, x), [infer.alpha_pass, infer.beta_pass, infer.gammas, infer.estimate],
+        m = reduce(lambda x, f: f(self.d, x),
+                   [infer.alpha_pass, infer.beta_pass, infer.gammas, infer.estimate],
                    infer.init(self.d))
         # Sanity checks
-        self.assertTrue(is_row_stochastic(m.A) and is_row_stochastic(m.B) and is_row_stochastic(m.p))
+        self.assertTrue(is_row_stochastic(m.A) and is_row_stochastic(m.B) and
+                        is_row_stochastic(m.p))
         # Did we accidentally share data somewhere?
         self.assertTrue(m.p.base is None)
         self.assertTrue(m.A.base is None)
@@ -139,13 +144,16 @@ class TestMethods(ut.TestCase):
 
         with self.subTest('Test initial distribution'):
             if not np.allclose(p, m.p, atol=config.test_eps):
-                self.fail('Estimated initial distribution diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
+                self.fail('Estimated initial distribution diverges from generator:'
+                          '\np: {0}\nm.p: {1}'.format(p, m.p))
         with self.subTest('Test transition'):
             if not np.allclose(A, m.A, atol=config.test_eps):
-                self.fail('Estimated transition matrix diverges from generator:\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
+                self.fail('Estimated transition matrix diverges from generator:'
+                          '\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
         with self.subTest('Test emission'):
             if not np.allclose(B, m.B, atol=config.test_eps):
-                self.fail('Estimated emission matrix diverges from generator\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
+                self.fail('Estimated emission matrix diverges from generator:'
+                          '\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
 
     @ut.skip('Trying shorter test')
     def test_iterate(self):
@@ -155,13 +163,16 @@ class TestMethods(ut.TestCase):
 
         with self.subTest('Test initial distribution'):
             if not np.allclose(p, m.p, atol=config.test_eps):
-                self.fail('Estimated initial distribution diverges from generator:\np: {0}\nm.p: {1}'.format(p, m.p))
+                self.fail('Estimated initial distribution diverges from generator:'
+                          '\np: {0}\nm.p: {1}'.format(p, m.p))
         with self.subTest('Test transition'):
             if not np.allclose(A, m.A, atol=config.test_eps):
-                self.fail('Estimated transition matrix diverges from generator:\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
+                self.fail('Estimated transition matrix diverges from generator:'
+                          '\nA:\n{0}\nm.A:\n{1}'.format(A, m.A))
         with self.subTest('Test emission'):
             if not np.allclose(B, m.B, atol=config.test_eps):
-                self.fail('Estimated emission matrix diverges from generator\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
+                self.fail('Estimated emission matrix diverges from generator:'
+                          '\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
 
 
 if __name__ == '__main__':
