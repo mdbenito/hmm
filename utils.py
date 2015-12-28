@@ -1,4 +1,5 @@
 from functools import reduce
+from time import time
 import numpy as np
 
 
@@ -13,3 +14,15 @@ def is_row_stochastic(M: np.ndarray) -> bool:
 
 def doto (val, *funs, **key_args):
     reduce(lambda x, f: f(x, **key_args), funs, val)
+
+
+class Timer:
+    def __init__(self, msg: str = ""):
+        self.msg = msg
+
+    def __enter__(self):
+        self.start = time()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.end = time()
+        print("{0} done in {1:>6.4}s".format(self.msg, self.end - self.start,))
