@@ -73,22 +73,25 @@ def init(d: Data, N: int=4) -> Model:
 def alpha_pass(d: Data, m: Model) -> Model:
     """
     Computes
+
         α_t(i) = α(t, i) = P(X_t = i, Y_0 = y_0, ..., Y_t = y_t)
+
+    as well as the scaling coefficients c[t]
+
+    WARNING! c[t] is the INVERSE of Rabiner's c[t]
     """
 
-    # Compute α_0
-    # α_0(i) = π_i * P(Emission = Y[0] | State = i) = π_i * B(i, Y[0])
+    # Compute and rescale α_0
+    #   α_0(i) = π_i * P(Emission = Y[0] | State = i) = π_i * B(i, Y[0])
     m.alpha[0] = m.p * m.B[:, d.Y[0]]
+    m.c[0] = m.alpha[0].sum()
+    m.alpha[0] /= m.c[0]
 
-    # Rescale α_0
-    m.c[0] = 1. / m.alpha[0].sum()
-    m.alpha[0] *= m.c[0]
-
-    # Compute α_t, rescaling at each stage
+    # Compute and rescale α_t
     for t in range(1, d.L):
         m.alpha[t] = (m.alpha[t - 1] @ m.A) * m.B[:, d.Y[t]]
-        m.c[t] = 1. / m.alpha[t].sum()
-        m.alpha[t] *= m.c[t]
+        m.c[t] = m.alpha[t].sum()
+        m.alpha[t] /= m.c[t]
 
     return m
 
@@ -101,22 +104,10 @@ def beta_pass(d: Data, m: Model) -> Model:
     TODO: Rescaling can be done with a new variable instead of using m.c, in order to enable
     parallel execution.
     """
-    # assert(hasattr(m, 'c'))
-
-    # Set β_{L-1}[i]=1*c[L-1]
-    m.beta[d.L-1] = m.c[d.L-1]
-
-    # m.beta[d.L - 1].fill(1./d.L)
-    # m.e[d.L - 1] = 1. / d.L
-
+    # assert hasattr(m, 'c')
+    m.beta[d.L-1].fill(1.)
     for t in range(d.L - 2, -1, -1):
-        # m.beta[t] = m.A @ (m.B[:, d.Y[t + 1]] * m.beta[t + 1])
-        m.beta[t] = 0.0
-        for i in range(m.N):
-            m.beta[t, i] += (m.A.T[:, i] * m.B.T[d.Y[t + 1], :] * m.beta[t + 1]).sum(axis=0)
-        m.beta[t] *= m.c[t]
-        # m.e[t] = 1. / m.beta[t].sum()
-        # m.beta[t] *= m.e[t]
+        m.beta[t] = (m.A @ (m.B[:, d.Y[t + 1]] * m.beta[t + 1])) / m.c[t + 1]
 
     return m
 
@@ -127,20 +118,19 @@ def gammas(d: Data, m: Model) -> Model:
         ɣ(t, i)    = P(X_t = i | Y_0, ..., Y_{L-1})
         ɣ(t, i, j) = P(X_t = i, X_{t+1} = j | Y_0, ..., Y_{L-1})
     """
-    assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
+    # assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
 
     V = m.B.T[d.Y[1:]] * m.beta[1:]
-    for t in range(d.L - 1):
-        m.digamma[t] = m.alpha[t].reshape((m.N, 1)) * (m.A * V[t])
+    for t in range(d.L-1):
+        m.digamma[t] = (m.alpha[t].reshape((m.N, 1)) * (m.A * V[t])) / m.c[t + 1]
 
-    # m.digamma /= m.digamma.sum(axis=(1, 2)).reshape(d.L-1, 1, 1)
-    m.gamma = m.digamma.sum(axis=2)
+    m.gamma = m.alpha * m.beta
 
     return m
 
 
 def estimate(d: Data, m: Model) -> Model:
-    assert (hasattr(m, 'gamma') and hasattr(m, 'digamma'))
+    assert hasattr(m, 'gamma') and hasattr(m, 'digamma')
 
     # \sum_{t=0}^{L-2} ɣ(t, i) = Expected number of transitions made *from* state i
     e_transitions_from = m.gamma[:-1, :].sum(axis=0)
@@ -150,32 +140,18 @@ def estimate(d: Data, m: Model) -> Model:
     # Re-estimate π
     m.p = np.copy(m.gamma[0].reshape((m.N,)))
 
-    # Re-estimate transition matrix A FIXME: this is wrong!
-    # m.A = m.digamma[:-1, :, :].sum(axis=0) / e_transitions_from.reshape((m.N, 1))
-    for i in range(m.N):
-        for j in range(m.N):
-            num = 0.0
-            den = 0.0
-            for t in range(d.L - 1):
-                num += m.digamma[t, i, j]
-                den += m.gamma[t, i]
-            m.A[i, j] = num / den
+    # Re-estimate transition matrix A
+    m.A = m.digamma.sum(axis=0) / e_transitions_from.reshape((m.N, 1))
+    # m.A = np.copy((m.digamma.sum(axis=0) / m.digamma.sum(axis=(0, 1)).reshape((m.N, 1))))
 
-    # Re-estimate emission matrix B FIXME! This is going to be sloooooow!
+    # Re-estimate emission matrix B
     m.B.fill(0.)
-    for j in range(m.N):
-        for k in range(d.M):
-            # for t in range(0, d.L - 1):
-            #    m.B[j, k] += m.gamma[t, j] if d.Y[t] == k else 0.
-                # FIXME: test performance wrt line below
-            m.B[j, k] += m.gamma[d.Y[:-1] == k, j].sum(axis=0)
-
+    for j, k in np.ndindex(m.N, d.M):
+        m.B[j, k] += m.gamma[d.Y == k, j].sum()
     m.B /= e_visited.reshape((m.N, 1))
-    # The following should be equivalent to /= e_visited, and it's O(N) as well.
-    # m.B /= m.B.sum(axis=1).reshape((m.N, 1))
 
     # Compute (log) likelihood of the observed emissions under the current model parameters
-    m.ll = - np.log(m.c).sum()
+    m.ll = np.log(m.c).sum()
 
     return m
 
@@ -212,6 +188,13 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
                 #       "{:.3}% in the likelihood".format(it, end - start, delta))
             start = time()
     if verbose:
+        done = 100 * it/maxiter
+        left = 100 - done
+        print('\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, '
+              'log likelihood delta {5:.3}%'.
+              format('■' * np.floor(done/2), '·' * np.ceil(left/2), int(done),
+                     it, end-start, delta, it_width=int(np.ceil(np.log10(maxiter)))),
+              end='')
         print('\nTotal running time: {:>8.4}s'.format(total-start))
     return m
 

@@ -33,16 +33,15 @@ class TestMethods(ut.TestCase):
         alpha = np.zeros_like(m.alpha)
         c = np.zeros_like(m.c)
         alpha[0] = m.p * m.B[:, self.d.Y[0]]
-        c[0] = 1. / alpha[0].sum()
-        alpha[0] *= c[0]
+        c[0] = alpha[0].sum()
+        alpha[0] /= c[0]
         for t in range(1, self.d.L):
             for i in range(m.N):
                 for j in range(m.N):
                     alpha[t, i] += alpha[t-1, j] * m.A[j, i]
                 alpha[t, i] *= m.B[i, self.d.Y[t]]
                 c[t] += alpha[t, i]
-            c[t] = 1.0 / c[t]
-            alpha[t] *= c[t]
+            alpha[t] /= c[t]
         self.assertTrue(np.allclose(alpha, m.alpha) and np.allclose(c, m.c), 'Computation is wrong')
 
     def test_beta_pass(self):
@@ -53,12 +52,12 @@ class TestMethods(ut.TestCase):
         self.assertEqual(m.beta.shape, (self.d.L, m.N), 'Shapes don\'t match')
 
         beta = np.zeros_like(m.beta)
-        beta[self.d.L - 1] = m.c[self.d.L - 1]
+        beta[self.d.L - 1] = 1.  # m.c[self.d.L - 1]
         for t in range(self.d.L-2, -1, -1):
             for i in range(m.N):
                 for j in range(m.N):
                     beta[t, i] += m.A[i, j] * m.B[j, self.d.Y[t+1]] * beta[t+1, j]
-                beta[t, i] *= m.c[t]
+                beta[t, i] /= m.c[t+1]
         self.assertTrue((np.allclose(beta, m.beta)), 'Computation is wrong')
 
     def test_gammas(self):
@@ -68,23 +67,21 @@ class TestMethods(ut.TestCase):
         digamma = np.ndarray(shape=m.digamma.shape)
         for t in range(self.d.L - 1):
             norm = 0.0
-            for i in range(m.N):
-                for j in range(m.N):
-                    norm += m.alpha[t, i] * m.A[i, j] * m.B[j, self.d.Y[t+1]] * m.beta[t+1, j]
-            for i in range(m.N):
-                gamma[t, i] = 0.0
-                for j in range(m.N):
-                    digamma[t, i, j] = m.alpha[t, i] * m.A[i, j] * \
-                                       m.B[j, self.d.Y[t+1]] * m.beta[t+1, j] / norm
-                    gamma[t, i] += digamma[t, i, j]
+            for i, j in np.ndindex(m.N, m.N):
+                norm += m.alpha[t, i] * m.A[i, j] * m.B[j, self.d.Y[t+1]] * m.beta[t+1, j]
+            for i, j in np.ndindex(m.N, m.N):
+                digamma[t, i, j] = m.alpha[t, i] * m.A[i, j] * \
+                                   m.B[j, self.d.Y[t+1]] * m.beta[t+1, j] / norm
+                gamma[t, i] += digamma[t, i, j]
 
         with self.subTest('Test gamma'):
-            self.assertEqual(m.gamma.shape, (self.d.L-1, m.N), 'Shapes don\'t match')
-            self.assertTrue(np.allclose(gamma, m.gamma), 'Computation is wrong')
+            self.assertEqual(m.gamma.shape, (self.d.L, m.N), 'Shapes don\'t match')
+            # HACK: gamma has one element less than m.gamma (!)
+            self.assertTrue(np.allclose(gamma[:-1], m.gamma[:-1]), 'Computation is wrong')
 
         with self.subTest('Test digamma'):
             self.assertEqual(m.digamma.shape, (self.d.L-1, m.N, m.N), 'Shapes don\'t match')
-            # TODO: why does each matrix digamma[t,·, ·] sum to one?
+            # Each matrix digamma[t,·, ·] is P(x_t, x_{t+1} | Y)
             self.assertTrue(np.allclose(1.0, m.digamma.sum(axis=(1, 2))),
                             'Digammas don\'t sum up to one')
             self.assertTrue(np.allclose(digamma, m.digamma), 'Computation is wrong')
@@ -104,27 +101,26 @@ class TestMethods(ut.TestCase):
 
         with self.subTest('Test transition matrix'):
             A = np.ndarray(shape=m.A.shape)
-            for i in range(m.N):
-                for j in range(m.N):
-                    num = 0.0
-                    den = 0.0
-                    for t in range(self.d.L - 1):
-                        num += m.digamma[t, i, j]
-                        den += m.gamma[t, i]
-                    A[i, j] = num / den
+            for i, j in np.ndindex(m.N, m.N):
+                num = 0.0
+                den = 0.0
+                for t in range(self.d.L - 1):
+                    num += m.digamma[t, i, j]
+                    den += m.gamma[t, i]
+                A[i, j] = num / den
             self.assertTrue(np.allclose(A, m.A), 'Wrong estimation')
 
+        # FIXME: this test seems to be wrong
         with self.subTest('Test emission matrix'):
             B = np.ndarray(shape=m.B.shape)
-            for i in range(m.N):
-                for k in range(self.d.M):
-                    num = 0.0
-                    den = 0.0
-                    for t in range(self.d.L - 1):
-                        if self.d.Y[t] == k:
-                            num += m.gamma[t, i]
-                        den += m.gamma[t, i]
-                    B[i, k] = num / den
+            for i, k in np.ndindex(m.N, m.N):
+                num = 0.0
+                den = 0.0
+                for t in range(self.d.L - 1):
+                    if self.d.Y[t] == k:
+                        num += m.gamma[t, i]
+                    den += m.gamma[t, i]
+                B[i, k] = num / den
             self.assertTrue(np.allclose(B, m.B), 'Wrong estimation')
 
     def test_iterate_simple(self):
