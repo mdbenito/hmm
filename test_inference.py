@@ -110,13 +110,12 @@ class TestMethods(ut.TestCase):
                 A[i, j] = num / den
             self.assertTrue(np.allclose(A, m.A), 'Wrong estimation')
 
-        # FIXME: this test seems to be wrong
         with self.subTest('Test emission matrix'):
             B = np.ndarray(shape=m.B.shape)
-            for i, k in np.ndindex(m.N, m.N):
+            for i, k in np.ndindex(m.N, self.d.M):
                 num = 0.0
                 den = 0.0
-                for t in range(self.d.L - 1):
+                for t in range(self.d.L):
                     if self.d.Y[t] == k:
                         num += m.gamma[t, i]
                     den += m.gamma[t, i]
