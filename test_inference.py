@@ -30,14 +30,13 @@ class TestMethods(ut.TestCase):
         m = infer.alpha_pass(self.d, m)
         self.assertEqual(m.alpha.shape, (self.d.L, m.N), 'Shapes don\'t match')
 
-        alpha = np.ndarray(shape=m.alpha.shape)
+        alpha = np.zeros_like(m.alpha)
         c = np.zeros_like(m.c)
         alpha[0] = m.p * m.B[:, self.d.Y[0]]
         c[0] = 1. / alpha[0].sum()
         alpha[0] *= c[0]
         for t in range(1, self.d.L):
             for i in range(m.N):
-                alpha[t, i] = 0.0
                 for j in range(m.N):
                     alpha[t, i] += alpha[t-1, j] * m.A[j, i]
                 alpha[t, i] *= m.B[i, self.d.Y[t]]
@@ -53,11 +52,10 @@ class TestMethods(ut.TestCase):
         m = infer.beta_pass(self.d, m)
         self.assertEqual(m.beta.shape, (self.d.L, m.N), 'Shapes don\'t match')
 
-        beta = np.ndarray(shape=m.beta.shape)
+        beta = np.zeros_like(m.beta)
         beta[self.d.L - 1] = m.c[self.d.L - 1]
         for t in range(self.d.L-2, -1, -1):
             for i in range(m.N):
-                beta[t, i] = 0.0
                 for j in range(m.N):
                     beta[t, i] += m.A[i, j] * m.B[j, self.d.Y[t+1]] * beta[t+1, j]
                 beta[t, i] *= m.c[t]
@@ -83,8 +81,12 @@ class TestMethods(ut.TestCase):
         with self.subTest('Test gamma'):
             self.assertEqual(m.gamma.shape, (self.d.L-1, m.N), 'Shapes don\'t match')
             self.assertTrue(np.allclose(gamma, m.gamma), 'Computation is wrong')
+
         with self.subTest('Test digamma'):
             self.assertEqual(m.digamma.shape, (self.d.L-1, m.N, m.N), 'Shapes don\'t match')
+            # TODO: why does each matrix digamma[t,·, ·] sum to one?
+            self.assertTrue(np.allclose(1.0, m.digamma.sum(axis=(1, 2))),
+                            'Digammas don\'t sum up to one')
             self.assertTrue(np.allclose(digamma, m.digamma), 'Computation is wrong')
 
     def test_estimate(self):
@@ -155,7 +157,7 @@ class TestMethods(ut.TestCase):
                 self.fail('Estimated emission matrix diverges from generator:'
                           '\nB:\n{0}\nm.B:\n{1}'.format(B, m.B))
 
-    @ut.skip('Trying shorter test')
+    @ut.skip('(Trying shorter test)')
     def test_iterate(self):
         [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
         m = infer.init(self.d, N)

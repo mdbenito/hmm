@@ -133,8 +133,6 @@ def gammas(d: Data, m: Model) -> Model:
     for t in range(d.L - 1):
         m.digamma[t] = m.alpha[t].reshape((m.N, 1)) * (m.A * V[t])
 
-    # FIXME: why does each matrix digamma[t,·, ·] sum to one?
-    assert (np.allclose(1.0, m.digamma.sum(axis=(1, 2))))  # Just in case it's not always true...
     # m.digamma /= m.digamma.sum(axis=(1, 2)).reshape(d.L-1, 1, 1)
     m.gamma = m.digamma.sum(axis=2)
 
