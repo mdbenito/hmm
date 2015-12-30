@@ -152,9 +152,9 @@ class TestMethods(ut.TestCase):
                 break
 
         # if all_ok:
-        #     print("Found p:\n{}\nA:\n{}\B:\n{}".format(np.round(alt_p, 3),
-        #                                                np.round(alt_A, 3),
-        #                                                np.round(alt_B, 3)))
+        #     print("Found p:\n{}\nA:\n{}\B:\n{}".format(np.round(m.p, 3),
+        #                                                np.round(m.A, 3),
+        #                                                np.round(m.B, 3)))
         # else:
         with self.subTest("Test initial distribution"):
             if not p_ok:
@@ -188,9 +188,9 @@ class TestMethods(ut.TestCase):
                 break
 
         # if all_ok:
-        #     print("Found p:\n{}\nA:\n{}\nB:\n{}".format(np.round(alt_p, 3),
-        #                                                 np.round(alt_A, 3),
-        #                                                 np.round(alt_B, 3)))
+        #     print("Found p:\n{}\nA:\n{}\nB:\n{}".format(np.round(m.p, 3),
+        #                                                 np.round(m.A, 3),
+        #                                                 np.round(m.B, 3)))
         # else:
         with self.subTest("Test initial distribution"):
             if not p_ok:
