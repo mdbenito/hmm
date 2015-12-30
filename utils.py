@@ -12,10 +12,6 @@ def is_row_stochastic(M: np.ndarray) -> bool:
         return np.allclose(M.sum(axis=1), np.ones(M.shape[0])) and (M >= 0).all()
 
 
-def doto (val, *funs, **key_args):
-    reduce(lambda x, f: f(x, **key_args), funs, val)
-
-
 class Timer:
     def __init__(self, msg: str = ""):
         self.msg = msg
