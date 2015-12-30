@@ -60,7 +60,7 @@ def init(d: Data, N: int=4) -> Model:
     # Normalize probabilities (make row-stochastic)
     [p, A, B] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A, B])
 
-    return Model(N=N, p=p.reshape(N, ), A=A, B=B,
+    return Model(N=N, p=p.reshape((N,)), A=A, B=B,
                  alpha=np.ndarray((d.L, N)),
                  # Scaling for α (and β if not concurrently run) / computation of log likelihood
                  c=np.ndarray((d.L,)),
