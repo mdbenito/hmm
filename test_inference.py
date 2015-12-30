@@ -45,10 +45,10 @@ class TestMethods(ut.TestCase):
         self.assertTrue(np.allclose(alpha, m.alpha) and np.allclose(c, m.c), "Computation is wrong")
 
     def test_beta_pass(self):
-        m = infer.init(self.d)
         # FIXME: compute proper scaling in beta_pass instead of relying on alpha_pass
-        m = infer.alpha_pass(self.d, m)
-        m = infer.beta_pass(self.d, m)
+        m = reduce(lambda x, f: f(self.d, x),
+                   [infer.alpha_pass, infer.beta_pass],
+                   infer.init(self.d))
         self.assertEqual(m.beta.shape, (self.d.L, m.N), "Shapes don't match")
 
         beta = np.zeros_like(m.beta)
@@ -62,7 +62,8 @@ class TestMethods(ut.TestCase):
 
     def test_gammas(self):
         m = reduce(lambda x, f: f(self.d, x),
-                   [infer.alpha_pass, infer.beta_pass, infer.gammas], infer.init(self.d))
+                   [infer.alpha_pass, infer.beta_pass, infer.gammas],
+                   infer.init(self.d))
         gamma = np.zeros_like(m.gamma)
         digamma = np.ndarray(shape=m.digamma.shape)
         for t in range(self.d.L - 1):
@@ -85,15 +86,17 @@ class TestMethods(ut.TestCase):
             # Each matrix digamma[t,·, ·] is P(x_t, x_{t+1} | Y)
             self.assertTrue(np.allclose(1.0, m.digamma.sum(axis=(1, 2))),
                             "Digammas don't sum up to one")
-            self.assertTrue(np.allclose(digamma, m.digamma), 'Computation is wrong')
+            self.assertTrue(np.allclose(digamma, m.digamma), "Computation is wrong")
 
     def test_estimate(self):
         m = reduce(lambda x, f: f(self.d, x),
                    [infer.alpha_pass, infer.beta_pass, infer.gammas, infer.estimate],
                    infer.init(self.d))
         # Sanity checks
-        self.assertTrue(is_row_stochastic(m.A) and is_row_stochastic(m.B) and
-                        is_row_stochastic(m.p))
+        self.assertTrue(is_row_stochastic(m.A), "A is not row stochastic")
+        self.assertTrue(is_row_stochastic(m.B), "B is not row stochastic")
+        self.assertTrue(is_row_stochastic(m.p), "p is not a probability table")
+
         # Did we accidentally share data somewhere?
         self.assertTrue(m.p.base is None)
         self.assertTrue(m.A.base is None)
