@@ -135,7 +135,7 @@ class TestMethods(ut.TestCase):
 
         d = data.generate(N=N, M=M, L=1000, p=p, A=A, B=B)
         m = infer.init(d, N)
-        m = infer.iterate(d, m, maxiter=200, verbose=False)
+        m = infer.iterate(d, m, maxiter=2000, verbose=True)
 
         # All possible permutations of the labels for three states
         permutations = [[0, 1, 2], [0, 2, 1], [2, 1, 0], [1, 0, 2]]
@@ -144,9 +144,9 @@ class TestMethods(ut.TestCase):
             alt_p = p[per]
             alt_A = A[per].T[per].T
             alt_B = B[per]
-            p_ok = p_ok or np.allclose(p, alt_p, atol=config.test_eps)
-            A_ok = A_ok or np.allclose(A, alt_A, atol=config.test_eps)
-            B_ok = B_ok or np.allclose(B, alt_B, atol=config.test_eps)
+            p_ok = p_ok or np.allclose(alt_p, m.p, atol=config.test_eps)
+            A_ok = A_ok or np.allclose(alt_A, m.A, atol=config.test_eps)
+            B_ok = B_ok or np.allclose(alt_B, m.B, atol=config.test_eps)
             all_ok = p_ok and A_ok and B_ok
             if all_ok:
                 break
@@ -172,7 +172,7 @@ class TestMethods(ut.TestCase):
     def test_iterate(self):
         [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
         m = infer.init(self.d, N)
-        m = infer.iterate(self.d, m, maxiter=500, verbose=False)
+        m = infer.iterate(self.d, m, maxiter=2000, verbose=True)
 
         # TODO: compute all possible (relevant) permutations for arbitrary N
         permutations = [[0, 1, 2], [0, 2, 1], [2, 1, 0], [1, 0, 2]]
@@ -181,9 +181,9 @@ class TestMethods(ut.TestCase):
             alt_p = p[per]
             alt_A = A[per].T[per].T
             alt_B = B[per]
-            p_ok = p_ok or np.allclose(p, alt_p, atol=config.test_eps)
-            A_ok = A_ok or np.allclose(A, alt_A, atol=config.test_eps)
-            B_ok = B_ok or np.allclose(B, alt_B, atol=config.test_eps)
+            p_ok = p_ok or np.allclose(alt_p, m.p, atol=config.test_eps)
+            A_ok = A_ok or np.allclose(alt_A, m.A, atol=config.test_eps)
+            B_ok = B_ok or np.allclose(alt_B, m.B, atol=config.test_eps)
             if all_ok:
                 break
 
