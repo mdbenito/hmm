@@ -11,7 +11,7 @@ class TestMethods(ut.TestCase):
     def __init__(self, methodName='runTest'):
         super().__init__(methodName)
         np.random.seed(2015)
-        self.d = data.generate(N=3, M=4, L=4000)
+        self.d = data.generate(N=3, M=4, L=1000)
 
     def test_init(self):
         m = infer.init(self.d)
@@ -135,10 +135,11 @@ class TestMethods(ut.TestCase):
 
         d = data.generate(N=N, M=M, L=1000, p=p, A=A, B=B)
         m = infer.init(d, N)
-        m = infer.iterate(d, m, maxiter=200, verbose=True)
+        m = infer.iterate(d, m, maxiter=200, verbose=False)
 
+        # All possible permutations of the labels for three states
         permutations = [[0, 1, 2], [0, 2, 1], [2, 1, 0], [1, 0, 2]]
-        p_ok = A_ok = B_ok = False
+        p_ok = A_ok = B_ok = all_ok = False
         for per in permutations:
             alt_p = p[per]
             alt_A = A[per].T[per].T
@@ -147,39 +148,62 @@ class TestMethods(ut.TestCase):
             A_ok = A_ok or np.allclose(A, alt_A, atol=config.test_eps)
             B_ok = B_ok or np.allclose(B, alt_B, atol=config.test_eps)
             all_ok = p_ok and A_ok and B_ok
+            if all_ok:
+                break
 
+        # if all_ok:
+        #     print("Found p:\n{}\nA:\n{}\B:\n{}".format(np.round(alt_p, 3),
+        #                                                np.round(alt_A, 3),
+        #                                                np.round(alt_B, 3)))
+        # else:
         with self.subTest("Test initial distribution"):
-            if not p_ok or not all_ok:
+            if not p_ok:
                 self.fail("Estimated initial distribution diverges from generator:"
                           "\np: {0}\nm.p: {1}".format(p, np.round(m.p, 2)))
         with self.subTest("Test transition"):
-            if not A_ok or not all_ok:
+            if not A_ok:
                 self.fail("Estimated transition matrix diverges from generator:"
                           "\nA:\n{0}\nm.A:\n{1}".format(A, np.round(m.A, 2)))
         with self.subTest("Test emission"):
-            if not B_ok or not all_ok:
+            if not B_ok:
                 self.fail("Estimated emission matrix diverges from generator:"
                           "\nB:\n{0}\nm.B:\n{1}".format(B, np.round(m.B, 2)))
 
-    @ut.skip("(Trying shorter test)")
     def test_iterate(self):
         [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
         m = infer.init(self.d, N)
-        m = infer.iterate(self.d, m, maxiter=150, verbose=True)
+        m = infer.iterate(self.d, m, maxiter=500, verbose=False)
 
+        # TODO: compute all possible (relevant) permutations for arbitrary N
+        permutations = [[0, 1, 2], [0, 2, 1], [2, 1, 0], [1, 0, 2]]
+        p_ok = A_ok = B_ok = all_ok = False
+        for per in permutations:
+            alt_p = p[per]
+            alt_A = A[per].T[per].T
+            alt_B = B[per]
+            p_ok = p_ok or np.allclose(p, alt_p, atol=config.test_eps)
+            A_ok = A_ok or np.allclose(A, alt_A, atol=config.test_eps)
+            B_ok = B_ok or np.allclose(B, alt_B, atol=config.test_eps)
+            if all_ok:
+                break
+
+        # if all_ok:
+        #     print("Found p:\n{}\nA:\n{}\nB:\n{}".format(np.round(alt_p, 3),
+        #                                                 np.round(alt_A, 3),
+        #                                                 np.round(alt_B, 3)))
+        # else:
         with self.subTest("Test initial distribution"):
-            if not np.allclose(p, m.p, atol=config.test_eps):
+            if not p_ok:
                 self.fail("Estimated initial distribution diverges from generator:"
-                          "\np: {0}\nm.p: {1}".format(p, m.p))
+                          "\np: {0}\nm.p: {1}".format(p, np.round(m.p, 2)))
         with self.subTest("Test transition"):
-            if not np.allclose(A, m.A, atol=config.test_eps):
+            if not A_ok:
                 self.fail("Estimated transition matrix diverges from generator:"
-                          "\nA:\n{0}\nm.A:\n{1}".format(A, m.A))
+                          "\nA:\n{0}\nm.A:\n{1}".format(A, np.round(m.A, 2)))
         with self.subTest("Test emission"):
-            if not np.allclose(B, m.B, atol=config.test_eps):
+            if not B_ok:
                 self.fail("Estimated emission matrix diverges from generator:"
-                          "\nB:\n{0}\nm.B:\n{1}".format(B, m.B))
-
+                          "\nB:\n{0}\nm.B:\n{1}".format(B, np.round(m.B, 2)))
 
 if __name__ == '__main__':
     ut.main()
