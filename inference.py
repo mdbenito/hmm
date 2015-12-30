@@ -65,7 +65,7 @@ def init(d: Data, N: int=4) -> Model:
                  # Scaling for α (and β if not concurrently run) / computation of log likelihood
                  c=np.ndarray((d.L,)),
                  beta=np.ndarray((d.L, N)),
-                 # Scaling of β (used if alpha_pass and beta_pass are run concurrently)
+                 # TODO: Scaling of β (used if alpha_pass and beta_pass are run concurrently)
                  e=np.ndarray((d.L, )),
                  gamma=np.ndarray((d.L - 1, N)), digamma=np.ndarray((d.L - 1, N, N)))
 
@@ -76,7 +76,13 @@ def alpha_pass(d: Data, m: Model) -> Model:
 
         α_t(i) = α(t, i) = P(X_t = i, Y_0 = y_0, ..., Y_t = y_t)
 
-    as well as the scaling coefficients c[t]
+    as well as the scaling coefficients c[t].
+    Requires:
+        - m.B is a valid (row stochastic) emission probability matrix (N x M)
+        - m.p is a valid initial probability vector (N x 1)
+    Ensures:
+        - m.alpha contains the *scaled* "forward probabilities"
+            m.alpha[t] = α[t] / (m.c[0] * ... * m.c[t])
 
     WARNING! c[t] is the INVERSE of Rabiner's c[t]
     """
@@ -137,20 +143,15 @@ def estimate(d: Data, m: Model) -> Model:
     # \sum_{t=0}^{L-1} ɣ(t, i) = Expected number of times that state i is visited
     e_visited = e_transitions_from + m.gamma[-1, :]
 
-    # Re-estimate π
+    # Re-estimate π, the transition matrix A and the emission matrix B
     m.p = np.copy(m.gamma[0].reshape((m.N,)))
-
-    # Re-estimate transition matrix A
     m.A = m.digamma.sum(axis=0) / e_transitions_from.reshape((m.N, 1))
-    # m.A = np.copy((m.digamma.sum(axis=0) / m.digamma.sum(axis=(0, 1)).reshape((m.N, 1))))
-
-    # Re-estimate emission matrix B
     m.B.fill(0.)
     for j, k in np.ndindex(m.N, d.M):
         m.B[j, k] += m.gamma[d.Y == k, j].sum()
     m.B /= e_visited.reshape((m.N, 1))
 
-    # Compute (log) likelihood of the observed emissions under the current model parameters
+    # Negative log likelihood of the observed emissions under the current model parameters
     m.ll = np.log(m.c).sum()
 
     return m
@@ -160,9 +161,9 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
     run = True
     ll = - np.inf
     it = 1
-    if verbose: print('\nRunning up to maxiter = {0} with threshold {1}%:'.format(maxiter, eps))
+    if verbose: print("\nRunning up to maxiter = {0} with threshold {1}%:".format(maxiter, eps))
     if m is None:
-        if verbose: print('Initializing model...')
+        if verbose: print("Initializing model...")
         m = init(d)
     start = time()
     total = 0.
@@ -179,8 +180,8 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
             if verbose:
                 done = 100 * it/maxiter
                 left = 100 - done
-                print('\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, '
-                      'log likelihood delta {5:.3}%'.
+                print("\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, "
+                      "log likelihood delta {5:.3}%".
                       format('■' * np.floor(done/2), '·' * np.ceil(left/2), int(done),
                              it, end-start, delta, it_width=int(np.ceil(np.log10(maxiter)))),
                       end='')
@@ -190,12 +191,12 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
     if verbose:
         done = 100 * it/maxiter
         left = 100 - done
-        print('\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, '
-              'log likelihood delta {5:.3}%'.
+        print("\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, "
+              "log likelihood delta {5:.3}%".
               format('■' * np.floor(done/2), '·' * np.ceil(left/2), int(done),
                      it, end-start, delta, it_width=int(np.ceil(np.log10(maxiter)))),
               end='')
-        print('\nTotal running time: {:>8.4}s'.format(total-start))
+        print("\nTotal running time: {:>8.4}s".format(total - start))
     return m
 
 
