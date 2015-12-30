@@ -51,7 +51,8 @@ def generate(N: int=4, M: int=10, L: int=1000, p=None, A=None, B=None) -> Data:
     if B is None:
         B = np.random.random((N, M))
     assert (p.shape == (1, N) and A.shape == (N, N) and B.shape == (N, M)), \
-        'Wrong shape for initial parameters (N = {0}, M = {1}):\np:{2}\nA:{3}\nB:{4}'.format(N, M, p.shape, A.shape, B.shape)
+        'Wrong shape for initial parameters (N = {0}, M = {1}):\np:{2}\nA:{3}\nB:{4}'\
+        .format(N, M, p.shape, A.shape, B.shape)
 
     Y = np.ndarray((L, ), dtype='i2')
     Q = np.ndarray((L, ), dtype='i2')
@@ -62,6 +63,6 @@ def generate(N: int=4, M: int=10, L: int=1000, p=None, A=None, B=None) -> Data:
     Y[0] = np.random.choice(M, p=B[Q[0]])  # Emission
     for t in range(1, L):
         Q[t] = np.random.choice(N, p=A[Q[t-1]])  # Jump to next state
-        Y[t] = np.random.choice(M, p=B[Q[t]])  # Emmit
+        Y[t] = np.random.choice(M, p=B[Q[t]])    # Emmit
 
     return Data(M=M, L=L, Y=Y, generator={'N': N, 'p': p[0], 'A': A, 'B': B, 'Q': Q})

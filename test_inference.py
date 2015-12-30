@@ -141,20 +141,20 @@ class TestMethods(ut.TestCase):
 
         d = data.generate(N=N, M=M, L=1000, p=p, A=A, B=B)
         m = infer.init(d, N)
-        m = infer.iterate(d, m, maxiter=150, verbose=True)
+        m = infer.iterate(d, m, maxiter=2000, verbose=True)
 
         with self.subTest("Test initial distribution"):
             if not np.allclose(p, m.p, atol=config.test_eps):
                 self.fail("Estimated initial distribution diverges from generator:"
-                          "\np: {0}\nm.p: {1}".format(p, m.p))
+                          "\np: {0}\nm.p: {1}".format(p, np.round(m.p, 2)))
         with self.subTest("Test transition"):
             if not np.allclose(A, m.A, atol=config.test_eps):
                 self.fail("Estimated transition matrix diverges from generator:"
-                          "\nA:\n{0}\nm.A:\n{1}".format(A, m.A))
+                          "\nA:\n{0}\nm.A:\n{1}".format(A, np.round(m.A, 2)))
         with self.subTest("Test emission"):
             if not np.allclose(B, m.B, atol=config.test_eps):
                 self.fail("Estimated emission matrix diverges from generator:"
-                          "\nB:\n{0}\nm.B:\n{1}".format(B, m.B))
+                          "\nB:\n{0}\nm.B:\n{1}".format(B, np.round(m.B, 2)))
 
     @ut.skip("(Trying shorter test)")
     def test_iterate(self):
