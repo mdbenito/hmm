@@ -127,12 +127,6 @@ class TestMethods(ut.TestCase):
             self.assertTrue(np.allclose(B, m.B), "Wrong estimation")
 
     def test_iterate_simple(self):
-        # N = 2
-        # M = 2
-        # p = np.array([1, 0])
-        # A = np.array([[0.1, 0.9], [0.1, 0.9]])
-        # B = np.array([[1, 0], [0, 1]])
-        #
         N = 3
         M = 2
         p = np.array([1, 0, 0])
@@ -141,18 +135,29 @@ class TestMethods(ut.TestCase):
 
         d = data.generate(N=N, M=M, L=1000, p=p, A=A, B=B)
         m = infer.init(d, N)
-        m = infer.iterate(d, m, maxiter=2000, verbose=True)
+        m = infer.iterate(d, m, maxiter=200, verbose=True)
+
+        permutations = [[0, 1, 2], [0, 2, 1], [2, 1, 0], [1, 0, 2]]
+        p_ok = A_ok = B_ok = False
+        for per in permutations:
+            alt_p = p[per]
+            alt_A = A[per].T[per].T
+            alt_B = B[per]
+            p_ok = p_ok or np.allclose(p, alt_p, atol=config.test_eps)
+            A_ok = A_ok or np.allclose(A, alt_A, atol=config.test_eps)
+            B_ok = B_ok or np.allclose(B, alt_B, atol=config.test_eps)
+            all_ok = p_ok and A_ok and B_ok
 
         with self.subTest("Test initial distribution"):
-            if not np.allclose(p, m.p, atol=config.test_eps):
+            if not p_ok or not all_ok:
                 self.fail("Estimated initial distribution diverges from generator:"
                           "\np: {0}\nm.p: {1}".format(p, np.round(m.p, 2)))
         with self.subTest("Test transition"):
-            if not np.allclose(A, m.A, atol=config.test_eps):
+            if not A_ok or not all_ok:
                 self.fail("Estimated transition matrix diverges from generator:"
                           "\nA:\n{0}\nm.A:\n{1}".format(A, np.round(m.A, 2)))
         with self.subTest("Test emission"):
-            if not np.allclose(B, m.B, atol=config.test_eps):
+            if not B_ok or not all_ok:
                 self.fail("Estimated emission matrix diverges from generator:"
                           "\nB:\n{0}\nm.B:\n{1}".format(B, np.round(m.B, 2)))
 
