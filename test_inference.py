@@ -210,15 +210,15 @@ class TestMethods(ut.TestCase):
         with self.subTest("Test initial distribution"):
             if not p_ok:
                 self.fail("Estimated initial distribution diverges from generator:"
-                          "\np: {0}\nm.p: {1}".format(p, np.round(m.p, 2)))
+                          "\np: {0}\nm.p: {1}".format(np.round(p, 2), np.round(m.p, 2)))
         with self.subTest("Test transition"):
             if not A_ok:
                 self.fail("Estimated transition matrix diverges from generator:"
-                          "\nA:\n{0}\nm.A:\n{1}".format(A, np.round(m.A, 2)))
+                          "\nA:\n{0}\nm.A:\n{1}".format(np.round(A, 2), np.round(m.A, 2)))
         with self.subTest("Test emission"):
             if not B_ok:
                 self.fail("Estimated emission matrix diverges from generator:"
-                          "\nB:\n{0}\nm.B:\n{1}".format(B, np.round(m.B, 2)))
+                          "\nB:\n{0}\nm.B:\n{1}".format(np.round(B, 2), np.round(m.B, 2)))
 
 if __name__ == '__main__':
     ut.main()
