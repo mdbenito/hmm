@@ -25,9 +25,9 @@ class TestMethods(ut.TestCase):
         with self.subTest("Test emission"):
             self.assertEqual(m.B.shape, (m.N, self.d.M), "Shapes don't match")
 
-    def test_alpha_pass(self):
+    def test_forward(self):
         m = infer.init(self.d)
-        m = infer.alpha_pass(self.d, m)
+        m = infer.forward(self.d, m)
         self.assertEqual(m.alpha.shape, (self.d.L, m.N), "Shapes don't match")
 
         alpha = np.zeros_like(m.alpha)
@@ -44,10 +44,10 @@ class TestMethods(ut.TestCase):
             alpha[t] /= c[t]
         self.assertTrue(np.allclose(alpha, m.alpha) and np.allclose(c, m.c), "Computation is wrong")
 
-    def test_beta_pass(self):
+    def test_backward(self):
         # FIXME: compute proper scaling in beta_pass instead of relying on alpha_pass
         m = reduce(lambda x, f: f(self.d, x),
-                   [infer.alpha_pass, infer.beta_pass],
+                   [infer.forward, infer.backward],
                    infer.init(self.d))
         self.assertEqual(m.beta.shape, (self.d.L, m.N), "Shapes don't match")
 
@@ -60,12 +60,12 @@ class TestMethods(ut.TestCase):
                 beta[t, i] /= m.c[t+1]
         self.assertTrue((np.allclose(beta, m.beta)), "Computation is wrong")
 
-    def test_gammas(self):
+    def test_posteriors(self):
         m = reduce(lambda x, f: f(self.d, x),
-                   [infer.alpha_pass, infer.beta_pass, infer.gammas],
+                   [infer.forward, infer.backward, infer.posteriors],
                    infer.init(self.d))
         gamma = np.zeros_like(m.gamma)
-        digamma = np.ndarray(shape=m.digamma.shape)
+        digamma = np.ndarray(shape=m.xi.shape)
         for t in range(self.d.L - 1):
             norm = 0.0
             for i, j in np.ndindex(m.N, m.N):
@@ -77,20 +77,20 @@ class TestMethods(ut.TestCase):
 
         with self.subTest('Test gamma'):
             self.assertEqual(m.gamma.shape, (self.d.L, m.N), "Shapes don't match")
-            self.assertTrue(np.allclose(m.digamma.sum(axis=(1, 2)), np.ones(self.d.L - 1)))
+            self.assertTrue(np.allclose(m.xi.sum(axis=(1, 2)), np.ones(self.d.L - 1)))
             # HACK: gamma has one element less than m.gamma (!)
             self.assertTrue(np.allclose(gamma[:-1], m.gamma[:-1]), 'Computation is wrong')
 
-        with self.subTest('Test digamma'):
-            self.assertEqual(m.digamma.shape, (self.d.L-1, m.N, m.N), "Shapes don't match")
-            # Each matrix digamma[t,·, ·] is P(x_t, x_{t+1} | Y)
-            self.assertTrue(np.allclose(1.0, m.digamma.sum(axis=(1, 2))),
+        with self.subTest('Test xi'):
+            self.assertEqual(m.xi.shape, (self.d.L - 1, m.N, m.N), "Shapes don't match")
+            # Each matrix xi[t,·, ·] is P(x_t, x_{t+1} | Y)
+            self.assertTrue(np.allclose(1.0, m.xi.sum(axis=(1, 2))),
                             "Digammas don't sum up to one")
-            self.assertTrue(np.allclose(digamma, m.digamma), "Computation is wrong")
+            self.assertTrue(np.allclose(digamma, m.xi), "Computation is wrong")
 
     def test_estimate(self):
         m = reduce(lambda x, f: f(self.d, x),
-                   [infer.alpha_pass, infer.beta_pass, infer.gammas, infer.estimate],
+                   [infer.forward, infer.backward, infer.posteriors, infer.estimate],
                    infer.init(self.d))
         # Sanity checks
         self.assertTrue(is_row_stochastic(m.A), "A is not row stochastic")
@@ -101,7 +101,7 @@ class TestMethods(ut.TestCase):
         self.assertTrue(m.p.base is None)
         self.assertTrue(m.A.base is None)
         self.assertTrue(m.B.base is None)
-        self.assertTrue(m.digamma.base is None)
+        self.assertTrue(m.xi.base is None)
 
         with self.subTest("Test transition matrix"):
             A = np.ndarray(shape=m.A.shape)
@@ -109,7 +109,7 @@ class TestMethods(ut.TestCase):
                 num = 0.0
                 den = 0.0
                 for t in range(self.d.L - 1):
-                    num += m.digamma[t, i, j]
+                    num += m.xi[t, i, j]
                     den += m.gamma[t, i]
                 A[i, j] = num / den
             self.assertTrue(np.allclose(A, m.A), "Wrong estimation")

@@ -22,7 +22,7 @@ class Model:
         alpha (LxN)
         beta (LxN)
         gamma (LxN)
-        digamma(LxNxN)
+        xi(LxNxN)
 
     Configuration:
         max_iterations
@@ -36,7 +36,7 @@ class Model:
     alpha = np.ndarray((0, 0))
     beta = np.ndarray((0, 0))
     gamma = np.ndarray((0, 0))
-    digamma = np.ndarray((0, 0, 0))
+    xi = np.ndarray((0, 0, 0))
     c = np.ndarray((0, 0))
 
     def __init__(self, **kwds):
@@ -67,10 +67,10 @@ def init(d: Data, N: int=4) -> Model:
                  beta=np.ndarray((d.L, N)),
                  # TODO: Scaling of β (used if alpha_pass and beta_pass are run concurrently)
                  e=np.ndarray((d.L, )),
-                 gamma=np.ndarray((d.L - 1, N)), digamma=np.ndarray((d.L - 1, N, N)))
+                 gamma=np.ndarray((d.L - 1, N)), xi=np.ndarray((d.L - 1, N, N)))
 
 
-def alpha_pass(d: Data, m: Model) -> Model:
+def forward(d: Data, m: Model) -> Model:
     """
     Computes
 
@@ -102,7 +102,7 @@ def alpha_pass(d: Data, m: Model) -> Model:
     return m
 
 
-def beta_pass(d: Data, m: Model) -> Model:
+def backward(d: Data, m: Model) -> Model:
     """
     Computes
         β_t(i) = β(t, i) = P(Y_{t+1} = y_{t+1}, ..., Y_{L-1} = y_{l-1} | X_t = i)
@@ -118,17 +118,17 @@ def beta_pass(d: Data, m: Model) -> Model:
     return m
 
 
-def gammas(d: Data, m: Model) -> Model:
+def posteriors(d: Data, m: Model) -> Model:
     """
     Computes
         ɣ(t, i)    = P(X_t = i | Y_0, ..., Y_{L-1})
-        ɣ(t, i, j) = P(X_t = i, X_{t+1} = j | Y_0, ..., Y_{L-1})
+        ξ(t, i, j) = P(X_t = i, X_{t+1} = j | Y_0, ..., Y_{L-1})
     """
     # assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
 
     V = m.B.T[d.Y[1:]] * m.beta[1:]
     for t in range(d.L-1):
-        m.digamma[t] = (m.alpha[t].reshape((m.N, 1)) * (m.A * V[t])) / m.c[t + 1]
+        m.xi[t] = (m.alpha[t].reshape((m.N, 1)) * (m.A * V[t])) / m.c[t + 1]
 
     m.gamma = m.alpha * m.beta
 
@@ -136,16 +136,16 @@ def gammas(d: Data, m: Model) -> Model:
 
 
 def estimate(d: Data, m: Model) -> Model:
-    assert hasattr(m, 'gamma') and hasattr(m, 'digamma')
+    # assert hasattr(m, 'gamma') and hasattr(m, 'xi')
 
-    # \sum_{t=0}^{L-2} ɣ(t, i) = Expected number of transitions made *from* state i
+    # Expected number of transitions made *from* state i
     e_transitions_from = m.gamma[:-1, :].sum(axis=0)
-    # \sum_{t=0}^{L-1} ɣ(t, i) = Expected number of times that state i is visited
+    # Expected number of times that state i is visited
     e_visited = e_transitions_from + m.gamma[-1, :]
 
     # Re-estimate π, the transition matrix A and the emission matrix B
     m.p = np.copy(m.gamma[0].reshape((m.N,)))
-    m.A = m.digamma.sum(axis=0) / e_transitions_from.reshape((m.N, 1))
+    m.A = m.xi.sum(axis=0) / e_transitions_from.reshape((m.N, 1))
     m.B.fill(0.)
     for j, k in np.ndindex(m.N, d.M):
         m.B[j, k] += m.gamma[d.Y == k, j].sum()
@@ -168,7 +168,7 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
     start = time()
     total = 0.
     while run:
-        m = reduce(lambda x, f: f(d, x), [alpha_pass, beta_pass, gammas, estimate], m)
+        m = reduce(lambda x, f: f(d, x), [forward, backward, posteriors, estimate], m)
         it += 1
         avg = (np.abs(ll) + np.abs(m.ll) + config.eps) / 2
         delta = 100.0 * (m.ll - ll) / avg if avg != np.inf else np.inf
