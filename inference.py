@@ -5,6 +5,11 @@ import numpy as np
 import config
 
 
+# For the type hints
+Scalar = np.float64
+Array = np.ndarray
+
+
 class Model:
     """
     Model attributes and data:
@@ -64,7 +69,7 @@ def init(d: Data, N: int=4) -> Model:
                  # Scaling for α (and β if not concurrently run) / computation of log likelihood
                  c=np.ndarray((d.L,)),
                  beta=np.ndarray((d.L, N)),
-                 # TODO: Scaling of β (used if alpha_pass and beta_pass are run concurrently)
+                 # TODO: Scaling of β (used if forward and backward recursions are run concurrently)
                  e=np.ndarray((d.L, )),
                  gamma=np.ndarray((d.L - 1, N)), xi=np.ndarray((d.L - 1, N, N)))
 
@@ -124,7 +129,6 @@ def posteriors(d: Data, m: Model) -> Model:
         ξ(t, i, j) = P(X_t = i, X_{t+1} = j | Y_0, ..., Y_{L-1})
     """
     # assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
-
     V = m.B.T[d.Y[1:]] * m.beta[1:]
     for t in range(d.L-1):
         m.xi[t] = (m.alpha[t].reshape((m.N, 1)) * (m.A * V[t])) / m.c[t + 1]
@@ -150,7 +154,7 @@ def estimate(d: Data, m: Model) -> Model:
         m.B[j, k] += m.gamma[d.Y == k, j].sum()
     m.B /= e_visited.reshape((m.N, 1))
 
-    # Negative log likelihood of the observed emissions under the current model parameters
+    # Log likelihood of the observed emissions under the current model parameters
     m.ll = np.log(m.c).sum()
 
     return m
@@ -193,7 +197,7 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
     return m
 
 
-def viterbi_path(d: Data, m: Model) -> np.ndarray:
+def viterbi_path(d: Data, m: Model) -> Array:
     """
     TODO: Returns the sequence of states maximizing the expected number of correct states.
     """
