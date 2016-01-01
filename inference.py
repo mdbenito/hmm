@@ -51,11 +51,10 @@ def init(d: Data, N: int=4) -> Model:
     :param N: Number of states in the model
     :param d: Data object
     """
-    # We must be careful not to use 1/N for initialization or we start at a local max.
-    # Instead we use 1/N ± ε(N), with ε(N)~U(-1/(2N),1/(2N))
-    p = (0.5 + np.random.random((1, N)))/N
-    A = (0.5 + np.random.random((N, N)))/N
-    B = (0.5 + np.random.random((N, d.M)))/d.M
+
+    p = np.random.random((1, N))
+    A = np.random.random((N, N))
+    B = np.random.random((N, d.M))
 
     # Normalize probabilities (make row-stochastic)
     [p, A, B] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A, B])
