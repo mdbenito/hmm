@@ -76,6 +76,27 @@ def init(d: Data, N: int=4) -> Model:
                  gamma=np.ndarray((d.L - 1, N)), xi=np.ndarray((d.L - 1, N, N)))
 
 
+def init_poisson(d: Data, N: int=4) -> Model:
+    p = np.random.random((1, N))
+    A = np.random.random((N, N))
+    rates = np.random.random((N, ))
+    dt = np.int(np.random.random() * 10)
+    B = np.ndarray((N, d.M))
+    for j, k in np.ndindex(N, d.M):
+        B[j, k] = np.exp(-rates[j]*dt)*np.power(rates[j]*dt, k) /\
+                  np.math.factorial(k)
+
+    # Normalize probabilities (make row-stochastic)
+    [p, A] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A])
+
+    return Model(N=N, p=p.reshape((N,)), A=A, rates=rates, B=B, dt=dt,
+                 alpha=np.ndarray((d.L, N)),
+                 c=np.ndarray((d.L,)),
+                 beta=np.ndarray((d.L, N)),
+                 gamma=np.ndarray((d.L - 1, N)),
+                 xi=np.ndarray((d.L - 1, N, N)))
+
+
 def forward(d: Data, m: Model) -> Model:
     """
     Requires:
@@ -177,20 +198,27 @@ def estimate_poisson(d: Data, m: Model) -> Model:
     """
     Performs one M-step in the EM algorithm, estimating the parameters of a
     model with Poisson emissions.
+
+    Requires:
+        - Precomputed m.alpha, m.beta, m.gamma, m.xi
+        - Valid m.dt
+    Ensures:
+        - Computed m.A, m.B, m.p, m.ll
     """
     # Expected number of transitions made *from* state i
     e_transitions_from = m.gamma[:-1, :].sum(axis=0)
+    # Expected number of times that state i is visited
+    e_visited = e_transitions_from + m.gamma[-1, :]
 
     # Re-estimate π, the transition matrix A and the emission matrix B
     m.p = np.copy(m.gamma[0].reshape((m.N,)))
     m.A = m.xi.sum(axis=0) / e_transitions_from.reshape((m.N, 1))
 
-    time_step = 10  # Milliseconds
-    rates = np.ndarray((m.N,))
-    rates = (d.Y @ m.gamma) / time_step
+    m.rates = (d.Y @ m.gamma) / (m.dt * e_visited)  # np.ndarray((m.N,))
     for j, k in np.ndindex(m.N, d.M):
-        m.B[j, k] = np.power(rates[j] * time_step, k) * np.exp(- rates[j] * time_step) / \
-                    np.math.factorial(k)
+        # FIXME: precompute factorials?
+        m.B[j, k] = np.exp(- m.rates[j] * m.dt) *\
+                    np.power(m.rates[j] * m.dt, k) / np.math.factorial(k)
 
     # Log likelihood of the data under the current model parameters
     m.ll = np.log(m.c).sum()
@@ -212,7 +240,7 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin,
     total = 0.
     while run:
         m = reduce(lambda x, f: f(d, x),
-                   [forward, backward, posteriors, estimate_multinomial], m)
+                   [forward, backward, posteriors, estimate_poisson], m)
         it += 1
         avg = (np.abs(ll) + np.abs(m.ll) + config.eps) / 2
         delta = 100.0 * (m.ll - ll) / avg if avg != np.inf else np.inf
