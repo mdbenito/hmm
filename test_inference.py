@@ -7,19 +7,21 @@ import data
 import config
 from utils import is_row_stochastic, available_cpu_count
 from concurrent.futures import ProcessPoolExecutor
+from typing import Sequence
 
 
-def run_multiple_iterations(N, M, p, A, B, d, maxiter=1000, runs=16, name=""):
+def run_multiple_models(d: data.Data, models: Sequence[infer.Model],
+                        truth: infer.Model, maxiter=1000, name=""):
     winner = None
     procs = available_cpu_count()
+    runs = len(models)
     with ProcessPoolExecutor(max_workers=procs) as ex:
-        initial_models = map(lambda dd: infer.init_poisson(dd, N), [d] * runs)
         iterations = [maxiter] * runs
         verbose = [False] * runs
         max_ll = - np.inf
         print("Starting {0} tests using {1} processes (maxiter={2})".
               format(runs, procs, maxiter))
-        for m in ex.map(infer.iterate, [d] * runs, initial_models, iterations,
+        for m in ex.map(infer.iterate, [d] * runs, models, iterations,
                         verbose):
             if m.ll > max_ll:
                 max_ll = m.ll
@@ -28,15 +30,15 @@ def run_multiple_iterations(N, M, p, A, B, d, maxiter=1000, runs=16, name=""):
                       format(m.ll))
             else:
                 print("Worker done.")
-
     m = winner
+
     # FIXME: All possible permutations of the labels for THREE states
     permutations = [[0, 1, 2], [0, 2, 1], [2, 1, 0], [1, 0, 2]]
     p_ok = A_ok = B_ok = all_ok = True
     for per in permutations:
-        alt_p = p[per]
-        alt_A = A[per].T[per].T
-        alt_B = B[per]
+        alt_p = truth.p[per]
+        alt_A = truth.A[per].T[per].T
+        alt_B = truth.B[per]
         p_ok = p_ok and np.allclose(alt_p, m.p, atol=config.test_eps)
         A_ok = A_ok and np.allclose(alt_A, m.A, atol=config.test_eps)
         B_ok = B_ok and np.allclose(alt_B, m.B, atol=config.test_eps)
@@ -47,9 +49,9 @@ def run_multiple_iterations(N, M, p, A, B, d, maxiter=1000, runs=16, name=""):
     if not all_ok:
         print("Tests failed. Saving state to /tmp/")
         np.savetxt("/tmp/test_iterate_{}.Y".format(name), d.Y, fmt="%d")
-        np.savetxt("/tmp/test_iterate_{}.p".format(name), p)
-        np.savetxt("/tmp/test_iterate_{}.A".format(name), A)
-        np.savetxt("/tmp/test_iterate_{}.B".format(name), B)
+        np.savetxt("/tmp/test_iterate_{}.p".format(name), truth.p)
+        np.savetxt("/tmp/test_iterate_{}.A".format(name), truth.A)
+        np.savetxt("/tmp/test_iterate_{}.B".format(name), truth.B)
 
     return [m.p, p_ok, m.A, A_ok, m.B, B_ok]
 
@@ -189,9 +191,12 @@ class TestMethods(ut.TestCase):
         A = np.array([[0.1, 0.8, 0.1], [0.1, 0.1, 0.8], [0.8, 0.1, 0.1]])
         B = np.array([[1, 0], [0, 1], [0, 1]])
         d = data.generate(N=N, M=M, L=400, p=p, A=A, B=B)
-        [mp, p_ok, mA, A_ok, mB, B_ok] =\
-            run_multiple_iterations(N=N, M=M, p=p, A=A, B=B, d=d,
-                                    maxiter=800, runs=32, name="simple")
+
+        initial_models = [infer.init_multinomial(dd, N) for dd in [d] * 16]
+        truth = infer.Model(N=N, p=p, A=A, B=B)
+        [mp, p_ok, mA, A_ok, mB, B_ok] = \
+            run_multiple_models(d=d, models=initial_models, truth=truth,
+                                name="simple")
 
         with self.subTest("Test initial distribution"):
             if not p_ok:
@@ -209,9 +214,11 @@ class TestMethods(ut.TestCase):
     @ut.skip("Blah")
     def test_iterate(self):
         [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
-        [mp, p_ok, mA, A_ok, mB, B_ok] =\
-            run_multiple_iterations(N=N, M=self.d.M, p=p, A=A, B=B, d=self.d,
-                                    runs=16, name="multinomial")
+        initial_models = [infer.init_multinomial(dd, N) for dd in [self.d] * 16]
+        truth = infer.Model(N=N, p=p, A=A, B=B)
+        [mp, p_ok, mA, A_ok, mB, B_ok] = \
+            run_multiple_models(d=self.d, models=initial_models, truth=truth,
+                                name="multinomial")
 
         with self.subTest("Test initial distribution"):
             if not p_ok:
@@ -235,11 +242,14 @@ class TestMethods(ut.TestCase):
         for j, k in np.ndindex(N, M):
             B[j, k] = np.exp(-rates[j]*dt)*np.power(rates[j]*dt, k) /\
                       np.math.factorial(k)
-        d = data.generate(N=N, M=M, L=200, B=B)
+        d = data.generate(N=N, M=M, L=400, B=B)
         [N, p, A] = [d.generator[k] for k in ['N', 'p', 'A']]
+        initial_models = [infer.init_poisson(dd, N) for dd in [d] * 16]
+        truth = infer.Model(N=N, p=p, A=A, B=B, rates=rates, dt=dt)
         [mp, p_ok, mA, A_ok, mB, B_ok] = \
-            run_multiple_iterations(N=N, M=M, p=p, A=A, B=B, d=d,
-                                    runs=12, maxiter=1000, name="Poisson")
+            run_multiple_models(d=d, models=initial_models, truth=truth,
+                                name="Poisson")
+
         plt.subplot(3, 1, 1)
         plt.plot(range(M), B[0], 'g')
         plt.plot(range(M), mB[0], 'b')
@@ -250,6 +260,8 @@ class TestMethods(ut.TestCase):
         plt.plot(range(M), B[2], 'g')
         plt.plot(range(M), mB[2], 'b')
         plt.show()
+
+        return [M, p, mp, A, mA, B, mB]
 
 
 if __name__ == '__main__':
