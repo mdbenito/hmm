@@ -1,6 +1,7 @@
 from functools import reduce
 import unittest as ut
 import numpy as np
+import matplotlib.pyplot as plt
 import inference as infer
 import data
 import config
@@ -12,7 +13,7 @@ def run_multiple_iterations(N, M, p, A, B, d, maxiter=1000, runs=16, name=""):
     winner = None
     procs = available_cpu_count()
     with ProcessPoolExecutor(max_workers=procs) as ex:
-        initial_models = map(lambda dd: infer.init(dd, N), [d] * runs)
+        initial_models = map(lambda dd: infer.init_poisson(dd, N), [d] * runs)
         iterations = [maxiter] * runs
         verbose = [False] * runs
         max_ll = - np.inf
@@ -56,8 +57,8 @@ def run_multiple_iterations(N, M, p, A, B, d, maxiter=1000, runs=16, name=""):
 class TestMethods(ut.TestCase):
     def __init__(self, methodName='runTest'):
         super().__init__(methodName)
-        np.random.seed(2015)
-        self.d = data.generate(N=3, M=4, L=1000)
+        #np.random.seed(2015)
+        self.d = data.generate(N=3, M=4, L=500)
 
     def test_init(self):
         m = infer.init(self.d)
@@ -188,45 +189,68 @@ class TestMethods(ut.TestCase):
         A = np.array([[0.1, 0.8, 0.1], [0.1, 0.1, 0.8], [0.8, 0.1, 0.1]])
         B = np.array([[1, 0], [0, 1], [0, 1]])
         d = data.generate(N=N, M=M, L=400, p=p, A=A, B=B)
-        [mp, p_ok, mA, A_ok, mB, B_ok] = run_multiple_iterations(N=N, M=M, p=p,
-                                                                 A=A, B=B, d=d,
-                                                                 maxiter=800,
-                                                                 runs=32,
-                                                                 name="simple")
+        [mp, p_ok, mA, A_ok, mB, B_ok] =\
+            run_multiple_iterations(N=N, M=M, p=p, A=A, B=B, d=d,
+                                    maxiter=800, runs=32, name="simple")
 
         with self.subTest("Test initial distribution"):
             if not p_ok:
-                self.fail("Estimated initial distribution diverges from generator:"
+                self.fail("Estimation of initial distribution failed."
                           "\np: {0}\nm.p: {1}".format(p, np.round(mp, 2)))
         with self.subTest("Test transition"):
             if not A_ok:
-                self.fail("Estimated transition matrix diverges from generator:"
+                self.fail("Estimation of transition matrix failed."
                           "\nA:\n{0}\nm.A:\n{1}".format(A, np.round(mA, 2)))
         with self.subTest("Test emission"):
             if not B_ok:
-                self.fail("Estimated emission matrix diverges from generator:"
+                self.fail("Estimation of emission matrix failed."
                           "\nB:\n{0}\nm.B:\n{1}".format(B, np.round(mB, 2)))
 
     @ut.skip("Blah")
     def test_iterate(self):
         [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
-        [mp, p_ok, mA, A_ok, mB, B_ok] = run_multiple_iterations(N=N, M=self.d.M,
-                                                                 p=p, A=A, B=B,
-                                                                 runs=16,
-                                                                 d=self.d)
+        [mp, p_ok, mA, A_ok, mB, B_ok] =\
+            run_multiple_iterations(N=N, M=self.d.M, p=p, A=A, B=B, d=self.d,
+                                    runs=16, name="multinomial")
 
         with self.subTest("Test initial distribution"):
             if not p_ok:
-                self.fail("Estimated initial distribution diverges from generator:"
+                self.fail("Estimation of initial distribution failed."
                           "\np: {0}\nm.p: {1}".format(p, np.round(mp, 2)))
         with self.subTest("Test transition"):
             if not A_ok:
-                self.fail("Estimated transition matrix diverges from generator:"
+                self.fail("Estimation of transition matrix failed."
                           "\nA:\n{0}\nm.A:\n{1}".format(A, np.round(mA, 2)))
         with self.subTest("Test emission"):
             if not B_ok:
-                self.fail("Estimated emission matrix diverges from generator:"
+                self.fail("Estimation of emission matrix failed."
                           "\nB:\n{0}\nm.B:\n{1}".format(B, np.round(mB, 2)))
+
+    def test_poisson(self):
+        N = 3
+        M = 8
+        dt = 10
+        rates = np.array([0.8, 0.4, 0.04])
+        B = np.ndarray((N, M))
+        for j, k in np.ndindex(N, M):
+            B[j, k] = np.exp(-rates[j]*dt)*np.power(rates[j]*dt, k) /\
+                      np.math.factorial(k)
+        d = data.generate(N=N, M=M, L=200, B=B)
+        [N, p, A] = [d.generator[k] for k in ['N', 'p', 'A']]
+        [mp, p_ok, mA, A_ok, mB, B_ok] = \
+            run_multiple_iterations(N=N, M=M, p=p, A=A, B=B, d=d,
+                                    runs=12, maxiter=1000, name="Poisson")
+        plt.subplot(3, 1, 1)
+        plt.plot(range(M), B[0], 'g')
+        plt.plot(range(M), mB[0], 'b')
+        plt.subplot(3, 1, 2)
+        plt.plot(range(M), B[1], 'g')
+        plt.plot(range(M), mB[1], 'b')
+        plt.subplot(3, 1, 3)
+        plt.plot(range(M), B[2], 'g')
+        plt.plot(range(M), mB[2], 'b')
+        plt.show()
+
 
 if __name__ == '__main__':
     ut.main()
