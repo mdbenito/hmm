@@ -115,16 +115,16 @@ class TestMethods(ut.TestCase):
                    [infer.forward, infer.backward, infer.posteriors],
                    infer.init(self.d))
         gamma = np.zeros_like(m.gamma)
-        digamma = np.ndarray(shape=m.xi.shape)
+        xi = np.ndarray(shape=m.xi.shape)
         for t in range(self.d.L - 1):
             norm = 0.0
             for i, j in np.ndindex(m.N, m.N):
                 norm += m.alpha[t, i] * m.A[i, j] * m.B[j, self.d.Y[t+1]] *\
                         m.beta[t+1, j]
             for i, j in np.ndindex(m.N, m.N):
-                digamma[t, i, j] = m.alpha[t, i] * m.A[i, j] * \
+                xi[t, i, j] = m.alpha[t, i] * m.A[i, j] * \
                                    m.B[j, self.d.Y[t+1]] * m.beta[t+1, j] / norm
-                gamma[t, i] += digamma[t, i, j]
+                gamma[t, i] += xi[t, i, j]
 
         with self.subTest('Test gamma'):
             self.assertEqual(m.gamma.shape, (self.d.L, m.N),
