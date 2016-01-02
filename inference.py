@@ -18,7 +18,7 @@ class Model:
         B = Observation probability matrix (NxM):
                 B(j, k) = Prob(Y_t = k | X_t = j)
             TODO: check whether usage pattern for B makes the transpose faster
-        p = Prior distribution for the initial state
+        p = Distribution for the initial state
     Internal data:
         alpha (LxN)
         beta (LxN)
@@ -27,11 +27,11 @@ class Model:
         c:  Scaling for α (and β if not concurrently run)
             also used to compute the log likelihood (since α itself is scaled)
         ll: log likelihood of the observed emissions
+    Configuration:
+        max_iterations
     Notation:
         X = [X_0, ..., X_{L-1}] = chain of states
         Y = [Y_0, ..., Y_{L-1}] = observed emissions
-    Configuration:
-        max_iterations
     """
 
     # Hints for the IDE:
@@ -68,7 +68,6 @@ def init(d: Data, N: int=4) -> Model:
 
     return Model(N=N, p=p.reshape((N,)), A=A, B=B,
                  alpha=np.ndarray((d.L, N)),
-                 # Scaling
                  c=np.ndarray((d.L,)),
                  beta=np.ndarray((d.L, N)),
                  # TODO: Scaling of β
