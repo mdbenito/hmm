@@ -226,15 +226,15 @@ def estimate_poisson(d: Data, m: Model) -> Model:
     """
 
     # from scipy.optimize import fsolve
+    # u = d.Y @ m.gamma
     # def gradQ3(x) -> np.ndarray:
-    #     nonlocal d, m
-    #     u = d.Y @ m.gamma
+    #     nonlocal d, m, u
     #     return u/x - m.dt * m.visited
     #
     # def hessQ3(x) -> np.ndarray:
-    #     nonlocal d, m
-    #     return np.diag(- m.u / (m.rates * m.rates))
-    # m.u = d.Y @ m.gamma   # HACK remove me
+    #     nonlocal d, m, u
+    #     return np.diag(- u / (m.rates * m.rates))
+    #
     # new_rates = fsolve(gradQ3, m.rates, fprime=hessQ3)
 
     m.p = np.copy(m.gamma[0].reshape((m.N,)))
@@ -277,6 +277,7 @@ def estimate_poisson_inhomogeneous(d: Data, m: Model) -> Model:
 
     m.p = np.copy(m.gamma[0].reshape((m.N,)))
     m.A = m.xi.sum(axis=0) / m.transitions_from.reshape((m.N, 1))
+
 
 
 # def newton_update(d: Data, m: Model) -> Model:
