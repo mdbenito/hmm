@@ -142,7 +142,7 @@ class TestMethods(ut.TestCase):
                              "Shapes don't match")
             # Each matrix xi[t,·, ·] is P(x_t, x_{t+1} | Y)
             self.assertTrue(np.allclose(1.0, m.xi.sum(axis=(1, 2))),
-                            "Digammas don't sum up to one")
+                            "Xi doesn't sum up to one")
             self.assertTrue(np.allclose(xi, m.xi), "Computation is wrong")
 
     def test_estimate(self):
