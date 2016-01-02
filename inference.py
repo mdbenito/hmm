@@ -7,7 +7,7 @@ import config
 
 # For the type hints
 Scalar = np.float64
-Array = np.ndarray
+Vector = Matrix = Array = np.ndarray
 
 
 class Model:
@@ -45,6 +45,12 @@ class Model:
     xi = np.ndarray((0, 0, 0))
     c = np.ndarray((0, 0))
     ll = - np.inf
+    visited = np.array((0,))
+    transitions_from = np.array((0, ))
+
+    # If using Poisson we also have:
+    dt = Scalar
+    rates = np.ndarray((0, 0))
 
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
@@ -76,25 +82,37 @@ def init(d: Data, N: int=4) -> Model:
                  gamma=np.ndarray((d.L - 1, N)), xi=np.ndarray((d.L - 1, N, N)))
 
 
+def poisson_emissions(rates: Vector, dt: Scalar, length: int) -> Vector:
+    N = len(rates)
+    B = np.ndarray((N, length))  # FIXME: should work in-place
+    for j, k in np.ndindex(N, length):
+        # FIXME: precompute factorials?
+        B[j, k] = np.exp(-rates[j]*dt)*np.power(rates[j]*dt, k) /\
+                  np.math.factorial(k)
+    return B
+
+
 def init_poisson(d: Data, N: int=4) -> Model:
     p = np.random.random((1, N))
     A = np.random.random((N, N))
+    [p, A] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A])  # Normalize
     rates = np.random.random((N, ))
     dt = np.int(np.random.random() * 10)
-    B = np.ndarray((N, d.M))
-    for j, k in np.ndindex(N, d.M):
-        B[j, k] = np.exp(-rates[j]*dt)*np.power(rates[j]*dt, k) /\
-                  np.math.factorial(k)
+    B = poisson_emissions(rates, dt, length=d.M)
 
-    # Normalize probabilities (make row-stochastic)
-    [p, A] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A])
+    # History effects:
+
+    H = 20  # Number of past emissions influencing a given one
+    # History filter basis (the name "poisson_emissions" is misleading here)
+    kh_basis = poisson_emissions(np.arange(0.8, 0.1, -0.2), dt, H)
 
     return Model(N=N, p=p.reshape((N,)), A=A, rates=rates, B=B, dt=dt,
                  alpha=np.ndarray((d.L, N)),
                  c=np.ndarray((d.L,)),
                  beta=np.ndarray((d.L, N)),
                  gamma=np.ndarray((d.L - 1, N)),
-                 xi=np.ndarray((d.L - 1, N, N)))
+                 xi=np.ndarray((d.L - 1, N, N)),
+                 H=H, kh_basis=kh_basis, kh=np.ndarray((N, H)))
 
 
 def forward(d: Data, m: Model) -> Model:
@@ -167,26 +185,27 @@ def posteriors(d: Data, m: Model) -> Model:
 
     m.gamma = m.alpha * m.beta
 
+    # The following are used in the M-step (estimate_*):
+
+    # Expected number of transitions made *from* state i
+    m.transitions_from = m.gamma[:-1, :].sum(axis=0)
+    # Expected number of times that state i is visited
+    m.visited = m.transitions_from + m.gamma[-1, :]
     return m
 
 
 def estimate_multinomial(d: Data, m: Model) -> Model:
     """
     Performs one M-step in the EM algorithm, estimating the parameters of a
-    model with multinomial emissions.
+    model with multinomial emissions: the initial probabilities π, the
+    transition matrix A and the emission matrix B
     """
-    # Expected number of transitions made *from* state i
-    e_transitions_from = m.gamma[:-1, :].sum(axis=0)
-    # Expected number of times that state i is visited
-    e_visited = e_transitions_from + m.gamma[-1, :]
-
-    # Re-estimate π, the transition matrix A and the emission matrix B
     m.p = np.copy(m.gamma[0].reshape((m.N,)))
-    m.A = m.xi.sum(axis=0) / e_transitions_from.reshape((m.N, 1))
+    m.A = m.xi.sum(axis=0) / m.transitions_from.reshape((m.N, 1))
     m.B.fill(0.)
     for j, k in np.ndindex(m.N, d.M):
         m.B[j, k] += m.gamma[d.Y == k, j].sum()
-    m.B /= e_visited.reshape((m.N, 1))
+    m.B /= m.visited.reshape((m.N, 1))
 
     # Log likelihood of the observed emissions under current model parameters
     m.ll = np.log(m.c).sum()
@@ -205,25 +224,68 @@ def estimate_poisson(d: Data, m: Model) -> Model:
     Ensures:
         - Computed m.A, m.B, m.p, m.ll
     """
-    # Expected number of transitions made *from* state i
-    e_transitions_from = m.gamma[:-1, :].sum(axis=0)
-    # Expected number of times that state i is visited
-    e_visited = e_transitions_from + m.gamma[-1, :]
 
-    # Re-estimate π, the transition matrix A and the emission matrix B
+    # from scipy.optimize import fsolve
+    # def gradQ3(x) -> np.ndarray:
+    #     nonlocal d, m
+    #     u = d.Y @ m.gamma
+    #     return u/x - m.dt * m.visited
+    #
+    # def hessQ3(x) -> np.ndarray:
+    #     nonlocal d, m
+    #     return np.diag(- m.u / (m.rates * m.rates))
+    # m.u = d.Y @ m.gamma   # HACK remove me
+    # new_rates = fsolve(gradQ3, m.rates, fprime=hessQ3)
+
     m.p = np.copy(m.gamma[0].reshape((m.N,)))
-    m.A = m.xi.sum(axis=0) / e_transitions_from.reshape((m.N, 1))
-
-    m.rates = (d.Y @ m.gamma) / (m.dt * e_visited)  # np.ndarray((m.N,))
-    for j, k in np.ndindex(m.N, d.M):
-        # FIXME: precompute factorials?
-        m.B[j, k] = np.exp(- m.rates[j] * m.dt) *\
-                    np.power(m.rates[j] * m.dt, k) / np.math.factorial(k)
+    m.A = m.xi.sum(axis=0) / m.transitions_from.reshape((m.N, 1))
+    m.rates = (d.Y @ m.gamma) / (m.dt * m.visited)  # np.ndarray((m.N,))
+    B = poisson_emissions(m.rates, m.dt, d.M)
 
     # Log likelihood of the data under the current model parameters
     m.ll = np.log(m.c).sum()
 
     return m
+
+
+def estimate_poisson_inhomogeneous(d: Data, m: Model) -> Model:
+    from scipy.optimize import fsolve
+    s = d.Y  # plus stuff
+
+    def gradQ3(k, n: int) -> Model:
+        """ - Requires: s is LxH, k is vector of length H """
+        nonlocal d, m, s
+        return ((m.gamma[:, n] * (d.Y - np.exp(s @ k) * m.dt))
+                .reshape((m.L, 1)) * s).sum(axis=0)
+
+    def test_gradQ3(k, n: int) -> bool:
+        nonlocal d, m, s
+        r = np.zeros_like(s[0])
+        for t in range(m.L):
+            r += m.gamma[t, n] * (d.Y[t] - np.exp(s[t] @ k) * m.dt) * s[t]
+        return r
+
+    def hessQ3(k, n: int) -> Model:
+        pass
+
+    def test_hessQ3(k, n: int) -> Model:
+        nonlocal d, m, s
+        r = np.zeros((m.H, ))
+        for t in range(m.L):
+            r += (m.gamma[t, n] * np.exp(s[t] @ k) * m.dt) * s[t]
+        return -np.diag(r)
+
+    m.p = np.copy(m.gamma[0].reshape((m.N,)))
+    m.A = m.xi.sum(axis=0) / m.transitions_from.reshape((m.N, 1))
+
+
+# def newton_update(d: Data, m: Model) -> Model:
+#     eta = 1e-3
+#     u = d.Y @ m.gamma
+#     m.rates = (1. - eta) * m.rates +\
+#         eta * (m.rates * m.rates * m.dt * m.visited / u)
+#
+#     return m
 
 
 def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin,
