@@ -1,4 +1,3 @@
-from functools import reduce
 from time import time
 import numpy as np
 import re
@@ -61,6 +60,7 @@ def available_cpu_count():
 
     # POSIX
     try:
+        import os
         res = int(os.sysconf('SC_NPROCESSORS_ONLN'))
 
         if res > 0:
@@ -89,6 +89,7 @@ def available_cpu_count():
 
     # BSD
     try:
+        import subprocess
         sysctl = subprocess.Popen(['sysctl', '-n', 'hw.ncpu'],
                                   stdout=subprocess.PIPE)
         scStdout = sysctl.communicate()[0]
@@ -123,6 +124,7 @@ def available_cpu_count():
 
     # Other UNIXes (heuristic)
     try:
+        import subprocess
         try:
             dmesg = open('/var/run/dmesg.boot').read()
         except IOError:
