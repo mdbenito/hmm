@@ -1,6 +1,6 @@
 import sys
 if sys.version_info < (3, 5):
-    print('Sorry, Python version >= 3.5 is required.')
+    print("Sorry, Python version >= 3.5 is required.")
     sys.exit(128)
 
 import getopt
@@ -12,14 +12,16 @@ def parse_options(argv):
     input_file = ''
     output_file = ''
     run_tests = False
-    usage_str = 'Usage: python hmm.py -i <input-file> -o <output-file>\n\nOther options:\n' + \
-                '\t-h, --help\t\tThis help\n' + \
-                '\t-i, --input-file\tSpecifies the input file\n' + \
-                '\t-o, --output-file\tSpecifies the output file\n' + \
-                '\t-t, --run-tests\t\tRun all tests\n'
+    usage_str = "Usage: python hmm.py -i <input-file> -o <output-file>\n\n" \
+                "Other options:\n" + \
+                "    -h, --help           This help\n" + \
+                "    -i, --input-file     Specifies the input file\n" + \
+                "    -o, --output-file    Specifies the output file\n" + \
+                "    -t, --run-tests      Run all tests\n"
     try:
         opts, args = getopt.getopt(argv, 'hti:o:',
-                                   ['help', 'run-tests', 'input-file=', 'output-file='])
+                                   ['help', 'run-tests', 'input-file=',
+                                    'output-file='])
     except getopt.GetoptError:
         print(usage_str)
         sys.exit(2)
@@ -34,8 +36,6 @@ def parse_options(argv):
         elif opt in ('-t', '--run-tests'):
             run_tests = True
     return [input_file, output_file, run_tests]
-    # print('Input file is "', input_file)
-    # print('Output file is "', output_file)
 
 
 def main(argv):

@@ -19,8 +19,9 @@ class Model:
 
     Model parameters:
         A = State transition matrix (NxN): A[i,j] = Prob(X_{t+1} = j | X_t = i)
-        B = Observation probability matrix (NxM): B(j, k) = Prob(Y_t = k | X_t = j)
-            TODO: check whether usage pattern for B makes the transpose a more sensible choice
+        B = Observation probability matrix (NxM):
+                B(j, k) = Prob(Y_t = k | X_t = j)
+            TODO: check whether usage pattern for B makes the transpose faster
         p = Prior distribution for the initial state
 
     Internal data:
@@ -28,7 +29,8 @@ class Model:
         beta (LxN)
         gamma (LxN)
         xi(LxNxN)
-
+        c:  Scaling for α (and β if not concurrently run)
+            also used to compute the log likelihood (since α itself is scaled)
     Configuration:
         max_iterations
     """
@@ -66,29 +68,30 @@ def init(d: Data, N: int=4) -> Model:
 
     return Model(N=N, p=p.reshape((N,)), A=A, B=B,
                  alpha=np.ndarray((d.L, N)),
-                 # Scaling for α (and β if not concurrently run) / computation of log likelihood
+                 # Scaling
                  c=np.ndarray((d.L,)),
                  beta=np.ndarray((d.L, N)),
-                 # TODO: Scaling of β (used if forward and backward recursions are run concurrently)
-                 e=np.ndarray((d.L, )),
+                 # TODO: Scaling of β
+                 # used if forward and backward recursions are run concurrently
+                 # e=np.ndarray((d.L, )),
                  gamma=np.ndarray((d.L - 1, N)), xi=np.ndarray((d.L - 1, N, N)))
 
 
 def forward(d: Data, m: Model) -> Model:
     """
-    Computes
-
-        α_t(i) = α(t, i) = P(X_t = i, Y_0 = y_0, ..., Y_t = y_t)
-
-    as well as the scaling coefficients c[t].
     Requires:
+        - m.A is a valid (row stochastic) transition probability matrix (N x N)
         - m.B is a valid (row stochastic) emission probability matrix (N x M)
         - m.p is a valid initial probability vector (N x 1)
-    Ensures:
-        - m.alpha contains the *scaled* "forward probabilities"
-            m.alpha[t] = α[t] / (m.c[0] * ... * m.c[t])
 
-    WARNING! c[t] is the INVERSE of Rabiner's c[t]
+    Ensures:
+        - Computed m.alpha with the *scaled* forward probabilities
+            m.alpha[t] = α[t] / (m.c[0] * ... * m.c[t])
+          where
+            α(t, i) = P(X_t = i, Y_0 = y_0, ..., Y_t = y_t)
+        - Computed scaling coefficients m.c, valid for backward() pass
+
+    WARNING! m.c[t] is the INVERSE of Rabiner's c[t]
     """
 
     # Compute and rescale α_0
@@ -108,13 +111,17 @@ def forward(d: Data, m: Model) -> Model:
 
 def backward(d: Data, m: Model) -> Model:
     """
-    Computes
-        β_t(i) = β(t, i) = P(Y_{t+1} = y_{t+1}, ..., Y_{L-1} = y_{l-1} | X_t = i)
+    Requires:
+        - m.A is a valid (row stochastic) transition probability matrix (N x N)
+        - m.B is a valid (row stochastic) emission probability matrix (N x M)
+        - Precomputed scaling coefficients m.c (using forward())
+    Ensures:
+        - Computed backward probabilities:
+            β(t, i) = P(Y_{t+1} = y_{t+1}, ..., Y_{L-1} = y_{l-1} | X_t = i)
 
-    TODO: Rescaling can be done with a new variable instead of using m.c, in order to enable
-    parallel execution.
+    TODO: For execution in parallel with forward(), rescaling can be done with
+          a new variable instead of using m.c.
     """
-    # assert hasattr(m, 'c')
     m.beta[d.L-1].fill(1.)
     for t in range(d.L - 2, -1, -1):
         m.beta[t] = (m.A @ (m.B[:, d.Y[t + 1]] * m.beta[t + 1])) / m.c[t + 1]
@@ -124,11 +131,16 @@ def backward(d: Data, m: Model) -> Model:
 
 def posteriors(d: Data, m: Model) -> Model:
     """
-    Computes
-        ɣ(t, i)    = P(X_t = i | Y_0, ..., Y_{L-1})
-        ξ(t, i, j) = P(X_t = i, X_{t+1} = j | Y_0, ..., Y_{L-1})
+    Requires:
+        - Precomputed m.alpha (using forward())
+        - Precomputed m.beta (using backward())
+    Ensures:
+        - Computed m.gamma:
+            ɣ(t, i) = P(X_t = i | Y_0, ..., Y_{L-1})
+        - Computed m.xi:
+            ξ(t, i, j) = P(X_t = i, X_{t+1} = j | Y_0, ..., Y_{L-1})
+          For each t, ξ(t) is an NxN matrix whose entries sum to 1
     """
-    # assert (hasattr(m, 'alpha') and hasattr(m, 'beta'))
     V = m.B.T[d.Y[1:]] * m.beta[1:]
     for t in range(d.L-1):
         m.xi[t] = (m.alpha[t].reshape((m.N, 1)) * (m.A * V[t])) / m.c[t + 1]
@@ -138,9 +150,11 @@ def posteriors(d: Data, m: Model) -> Model:
     return m
 
 
-def estimate(d: Data, m: Model) -> Model:
-    # assert hasattr(m, 'gamma') and hasattr(m, 'xi')
-
+def estimate_multinomial(d: Data, m: Model) -> Model:
+    """
+    Performs one M-step in the EM algorithm, estimating the parameters of a
+    model with multinomial emissions.
+    """
     # Expected number of transitions made *from* state i
     e_transitions_from = m.gamma[:-1, :].sum(axis=0)
     # Expected number of times that state i is visited
@@ -154,13 +168,17 @@ def estimate(d: Data, m: Model) -> Model:
         m.B[j, k] += m.gamma[d.Y == k, j].sum()
     m.B /= e_visited.reshape((m.N, 1))
 
-    # Log likelihood of the observed emissions under the current model parameters
+    # Log likelihood of the observed emissions under current model parameters
     m.ll = np.log(m.c).sum()
 
     return m
 
 
 def estimate_poisson(d: Data, m: Model) -> Model:
+    """
+    Performs one M-step in the EM algorithm, estimating the parameters of a
+    model with Poisson emissions.
+    """
     # Expected number of transitions made *from* state i
     e_transitions_from = m.gamma[:-1, :].sum(axis=0)
 
@@ -181,18 +199,21 @@ def estimate_poisson(d: Data, m: Model) -> Model:
     return m
 
 
-def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, verbose=False)-> Model:
+def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin,
+            verbose=False)-> Model:
     run = True
     ll = - np.inf
     it = 1
-    if verbose: print("\nRunning up to maxiter = {0} with threshold {1}%:".format(maxiter, eps))
+    if verbose: print("\nRunning up to maxiter = {0}"
+                      " with threshold {1}%:".format(maxiter, eps))
     if m is None:
         if verbose: print("Initializing model...")
         m = init(d)
     start = time()
     total = 0.
     while run:
-        m = reduce(lambda x, f: f(d, x), [forward, backward, posteriors, estimate], m)
+        m = reduce(lambda x, f: f(d, x),
+                   [forward, backward, posteriors, estimate_multinomial], m)
         it += 1
         avg = (np.abs(ll) + np.abs(m.ll) + config.eps) / 2
         delta = 100.0 * (m.ll - ll) / avg if avg != np.inf else np.inf

@@ -19,12 +19,15 @@ def run_multiple_iterations(N, M, p, A, B, d, runs_multiplier=4, name=""):
         iterations = [maxiter] * runs
         verbose = [False] * runs
         max_ll = - np.inf
-        print("Starting {0} tests using {1} processes (maxiter={2})".format(runs, procs, maxiter))
-        for m in ex.map(infer.iterate, [d] * runs, initial_models, iterations, verbose):
+        print("Starting {0} tests using {1} processes (maxiter={2})".
+              format(runs, procs, maxiter))
+        for m in ex.map(infer.iterate, [d] * runs, initial_models, iterations,
+                        verbose):
             if m.ll > max_ll:
                 max_ll = m.ll
                 winner = m
-                print("Worker done: new winner with log likelihood = {0}".format(m.ll))
+                print("Worker done: new winner with log likelihood = {0}".
+                      format(m.ll))
             else:
                 print("Worker done.")
 
@@ -62,7 +65,8 @@ class TestMethods(ut.TestCase):
     def test_init(self):
         m = infer.init(self.d)
         for M in [m.p, m.A, m.B]:
-            self.assertTrue(is_row_stochastic(M), "Initial model parameters are not probabilities")
+            self.assertTrue(is_row_stochastic(M),
+                            "Initial model parameters are not probabilities")
 
         with self.subTest("Test initial distribution"):
             self.assertEqual(m.p.shape, (m.N, ), "Shapes don't match")
@@ -88,10 +92,11 @@ class TestMethods(ut.TestCase):
                 alpha[t, i] *= m.B[i, self.d.Y[t]]
                 c[t] += alpha[t, i]
             alpha[t] /= c[t]
-        self.assertTrue(np.allclose(alpha, m.alpha) and np.allclose(c, m.c), "Computation is wrong")
+        self.assertTrue(np.allclose(alpha, m.alpha) and np.allclose(c, m.c),
+                        "Computation is wrong")
 
     def test_backward(self):
-        # FIXME: compute proper scaling in beta_pass instead of relying on alpha_pass
+        # FIXME: compute proper scaling for beta instead of relying on m.c
         m = reduce(lambda x, f: f(self.d, x),
                    [infer.forward, infer.backward],
                    infer.init(self.d))
@@ -102,7 +107,8 @@ class TestMethods(ut.TestCase):
         for t in range(self.d.L-2, -1, -1):
             for i in range(m.N):
                 for j in range(m.N):
-                    beta[t, i] += m.A[i, j] * m.B[j, self.d.Y[t+1]] * beta[t+1, j]
+                    beta[t, i] += m.A[i, j] * m.B[j, self.d.Y[t+1]] *\
+                                  beta[t+1, j]
                 beta[t, i] /= m.c[t+1]
         self.assertTrue((np.allclose(beta, m.beta)), "Computation is wrong")
 
@@ -115,20 +121,25 @@ class TestMethods(ut.TestCase):
         for t in range(self.d.L - 1):
             norm = 0.0
             for i, j in np.ndindex(m.N, m.N):
-                norm += m.alpha[t, i] * m.A[i, j] * m.B[j, self.d.Y[t+1]] * m.beta[t+1, j]
+                norm += m.alpha[t, i] * m.A[i, j] * m.B[j, self.d.Y[t+1]] *\
+                        m.beta[t+1, j]
             for i, j in np.ndindex(m.N, m.N):
                 digamma[t, i, j] = m.alpha[t, i] * m.A[i, j] * \
                                    m.B[j, self.d.Y[t+1]] * m.beta[t+1, j] / norm
                 gamma[t, i] += digamma[t, i, j]
 
         with self.subTest('Test gamma'):
-            self.assertEqual(m.gamma.shape, (self.d.L, m.N), "Shapes don't match")
-            self.assertTrue(np.allclose(m.xi.sum(axis=(1, 2)), np.ones(self.d.L - 1)))
+            self.assertEqual(m.gamma.shape, (self.d.L, m.N),
+                             "Shapes don't match")
+            self.assertTrue(np.allclose(m.xi.sum(axis=(1, 2)),
+                                        np.ones(self.d.L - 1)))
             # HACK: gamma has one element less than m.gamma (!)
-            self.assertTrue(np.allclose(gamma[:-1], m.gamma[:-1]), 'Computation is wrong')
+            self.assertTrue(np.allclose(gamma[:-1], m.gamma[:-1]),
+                            'Computation is wrong')
 
         with self.subTest('Test xi'):
-            self.assertEqual(m.xi.shape, (self.d.L - 1, m.N, m.N), "Shapes don't match")
+            self.assertEqual(m.xi.shape, (self.d.L - 1, m.N, m.N),
+                             "Shapes don't match")
             # Each matrix xi[t,·, ·] is P(x_t, x_{t+1} | Y)
             self.assertTrue(np.allclose(1.0, m.xi.sum(axis=(1, 2))),
                             "Digammas don't sum up to one")
@@ -136,7 +147,8 @@ class TestMethods(ut.TestCase):
 
     def test_estimate(self):
         m = reduce(lambda x, f: f(self.d, x),
-                   [infer.forward, infer.backward, infer.posteriors, infer.estimate],
+                   [infer.forward, infer.backward, infer.posteriors,
+                    infer.estimate_multinomial],
                    infer.init(self.d))
         # Sanity checks
         self.assertTrue(is_row_stochastic(m.A), "A is not row stochastic")
@@ -179,7 +191,8 @@ class TestMethods(ut.TestCase):
         A = np.array([[0.1, 0.8, 0.1], [0.1, 0.1, 0.8], [0.8, 0.1, 0.1]])
         B = np.array([[1, 0], [0, 1], [0, 1]])
         d = data.generate(N=N, M=M, L=1000, p=p, A=A, B=B)
-        [mp, p_ok, mA, A_ok, mB, B_ok] = run_multiple_iterations(N=N, M=M, p=p, A=A, B=B, d=d,
+        [mp, p_ok, mA, A_ok, mB, B_ok] = run_multiple_iterations(N=N, M=M, p=p,
+                                                                 A=A, B=B, d=d,
                                                                  name="simple")
 
         with self.subTest("Test initial distribution"):
@@ -198,7 +211,8 @@ class TestMethods(ut.TestCase):
     @ut.skip("Blah")
     def test_iterate(self):
         [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
-        [mp, p_ok, mA, A_ok, mB, B_ok] = run_multiple_iterations(N=N, M=self.d.M, p=p, A=A, B=B,
+        [mp, p_ok, mA, A_ok, mB, B_ok] = run_multiple_iterations(N=N, M=self.d.M,
+                                                                 p=p, A=A, B=B,
                                                                  d=self.d)
 
         with self.subTest("Test initial distribution"):
