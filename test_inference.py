@@ -1,26 +1,51 @@
 from functools import reduce
+from queue import Queue, Empty
 import unittest as ut
 import numpy as np
 import inference as infer
 import data
 import config
-from utils import is_row_stochastic, available_cpu_count
+from utils import is_row_stochastic, available_cpu_count, new_channel
 from concurrent.futures import ProcessPoolExecutor
+from time import sleep
+
+
+def messenger(q: Queue):
+    while True:
+        sleep(0.1)
+        try:
+            print(q.get_nowait())
+        except Empty:
+            pass
 
 
 def run_multiple_iterations(N, M, p, A, B, d, runs_multiplier=4, name=""):
+    q = Queue()
     winner = None
     procs = available_cpu_count()
     runs = procs * runs_multiplier
-    with ProcessPoolExecutor(max_workers=procs) as ex:
+    with ProcessPoolExecutor(max_workers=procs+1) as ex:
+        msg = ex.submit(messenger, q)
         runs = procs * 4
         initial_models = map(lambda dd: infer.init(dd, N), [d] * runs)
         maxiter = 2000
         iterations = [maxiter] * runs
-        verbose = [False] * runs
+        channels = [new_channel(q, x) for x in range(runs)]
         max_ll = - np.inf
         print("Starting {0} tests using {1} processes (maxiter={2})".format(runs, procs, maxiter))
-        for m in ex.map(infer.iterate, [d] * runs, initial_models, iterations, verbose):
+        # tasks = [[infer.iterate, dd, infer.init(dd, N), 2000, new_channel(q, k)]
+        #          for dd, k in zip([d] * runs, range(runs))]
+        # running_tasks = []
+        # while True:
+        #     for t in running_tasks:
+        #         if free_slot:
+        #             append new task
+        #         if any_done:
+        #             pop task
+        #     if any_messages:
+        #         print messages
+        #     sleep(10ms)
+        for m in ex.map(infer.iterate, [d] * runs, initial_models, iterations, channels):
             if m.ll > max_ll:
                 max_ll = m.ll
                 winner = m

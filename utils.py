@@ -1,7 +1,26 @@
-from functools import reduce
+from functools import partial
+from queue import Queue
 from time import time
 import numpy as np
 import re
+
+
+def null_out(msg: str="", *args):
+    return
+
+
+def std_out(msg: str="", *args):
+    print(msg, args)
+    return
+
+
+def queue_out(msg: str="", q: Queue=None, prefix="", *args):
+    q.put(prefix + msg, block=False)
+    return
+
+
+def new_channel(q: Queue, id: int=0):
+    return partial(queue_out, q=q, prefix="[{0}] ".format(id))
 
 
 def is_row_stochastic(M: np.ndarray) -> bool:

@@ -1,9 +1,10 @@
+import numpy as np
+import config
 from functools import reduce
 from data import Data
 from time import time
-import numpy as np
-import config
-
+from utils import null_out
+from typing import Callable
 
 # For the type hints
 Scalar = np.float64
@@ -48,7 +49,7 @@ class Model:
         self.__dict__.update(kwds)
 
 
-def init(d: Data, N: int=4) -> Model:
+def init(d: Data, N: int=4, out=null_out) -> Model:
     """
     Initializes the model to random values.
     TODO: compute best value for N
@@ -74,7 +75,7 @@ def init(d: Data, N: int=4) -> Model:
                  gamma=np.ndarray((d.L - 1, N)), xi=np.ndarray((d.L - 1, N, N)))
 
 
-def forward(d: Data, m: Model) -> Model:
+def forward(d: Data, m: Model, out=null_out) -> Model:
     """
     Computes
 
@@ -106,7 +107,7 @@ def forward(d: Data, m: Model) -> Model:
     return m
 
 
-def backward(d: Data, m: Model) -> Model:
+def backward(d: Data, m: Model, out=null_out) -> Model:
     """
     Computes
         β_t(i) = β(t, i) = P(Y_{t+1} = y_{t+1}, ..., Y_{L-1} = y_{l-1} | X_t = i)
@@ -122,7 +123,7 @@ def backward(d: Data, m: Model) -> Model:
     return m
 
 
-def posteriors(d: Data, m: Model) -> Model:
+def posteriors(d: Data, m: Model, out=null_out) -> Model:
     """
     Computes
         ɣ(t, i)    = P(X_t = i | Y_0, ..., Y_{L-1})
@@ -138,7 +139,7 @@ def posteriors(d: Data, m: Model) -> Model:
     return m
 
 
-def estimate(d: Data, m: Model) -> Model:
+def estimate(d: Data, m: Model, out=null_out) -> Model:
     # assert hasattr(m, 'gamma') and hasattr(m, 'xi')
 
     # Expected number of transitions made *from* state i
@@ -160,13 +161,14 @@ def estimate(d: Data, m: Model) -> Model:
     return m
 
 
-def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, verbose=False)-> Model:
+def iterate(d: Data, m: Model=None, maxiter: int=100, eps: Scalar=config.iteration_margin, 
+            out=null_out) -> Model:
     run = True
     ll = - np.inf
     it = 1
-    if verbose: print("\nRunning up to maxiter = {0} with threshold {1}%:".format(maxiter, eps))
+    out("Running up to maxiter = {0} with threshold {1}%:\n".format(maxiter, eps))
     if m is None:
-        if verbose: print("Initializing model...")
+        out("Initializing model...\n")
         m = init(d)
     start = time()
     total = 0.
@@ -180,24 +182,22 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, ver
         if it % 10 == 0:
             end = time()
             total += end
-            if verbose:
-                done = 100 * it/maxiter
-                left = 100 - done
-                print("\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, "
-                      "log likelihood delta {5:.3}%".
-                      format('■' * np.floor(done/2), '·' * np.ceil(left/2), int(done),
-                             it, end-start, delta, it_width=int(np.ceil(np.log10(maxiter)))),
-                      end='')
-                # print("Iteration {} finishes after {:.4}s with an increase of "
-                #       "{:.3}% in the likelihood".format(it, end - start, delta))
+
+            done = 100 * it/maxiter
+            left = 100 - done
+            out("\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, "
+                  "log likelihood delta {5:.3}%".
+                  format('■' * np.floor(done/2), '·' * np.ceil(left/2), int(done),
+                         it, end-start, delta, it_width=int(np.ceil(np.log10(maxiter)))),
+                  end='')
+            # out("Iteration {} finishes after {:.4}s with an increase of "
+            #     "{:.3}% in the likelihood".format(it, end - start, delta))
             start = time()
-    if verbose:
-        print("\nDone after {0} iterations. Total running time: {1:>8.4}s"
-              .format(it, total - start))
+    out("\nDone after {0} iterations. Total running time: {1:>8.4}s".format(it, total - start))
     return m
 
 
-def viterbi_path(d: Data, m: Model) -> Array:
+def viterbi_path(d: Data, m: Model, out=null_out) -> Array:
     """
     TODO: Returns the sequence of states maximizing the expected number of correct states.
     """
