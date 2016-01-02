@@ -160,6 +160,27 @@ def estimate(d: Data, m: Model) -> Model:
     return m
 
 
+def estimate_poisson(d: Data, m: Model) -> Model:
+    # Expected number of transitions made *from* state i
+    e_transitions_from = m.gamma[:-1, :].sum(axis=0)
+
+    # Re-estimate π, the transition matrix A and the emission matrix B
+    m.p = np.copy(m.gamma[0].reshape((m.N,)))
+    m.A = m.xi.sum(axis=0) / e_transitions_from.reshape((m.N, 1))
+
+    time_step = 10  # Milliseconds
+    rates = np.ndarray((m.N,))
+    rates = (d.Y @ m.gamma) / time_step
+    for j, k in np.ndindex(m.N, d.M):
+        m.B[j, k] = np.power(rates[j] * time_step, k) * np.exp(- rates[j] * time_step) / \
+                    np.math.factorial(k)
+
+    # Log likelihood of the observed emissions under the current model parameters
+    m.ll = np.log(m.c).sum()
+
+    return m
+
+
 def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin, verbose=False)-> Model:
     run = True
     ll = - np.inf
