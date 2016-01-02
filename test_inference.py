@@ -8,14 +8,11 @@ from utils import is_row_stochastic, available_cpu_count
 from concurrent.futures import ProcessPoolExecutor
 
 
-def run_multiple_iterations(N, M, p, A, B, d, runs_multiplier=4, name=""):
+def run_multiple_iterations(N, M, p, A, B, d, maxiter=1000, runs=16, name=""):
     winner = None
     procs = available_cpu_count()
-    runs = procs * runs_multiplier
     with ProcessPoolExecutor(max_workers=procs) as ex:
-        runs = procs * 4
         initial_models = map(lambda dd: infer.init(dd, N), [d] * runs)
-        maxiter = 2000
         iterations = [maxiter] * runs
         verbose = [False] * runs
         max_ll = - np.inf
@@ -190,9 +187,11 @@ class TestMethods(ut.TestCase):
         p = np.array([1, 0, 0])
         A = np.array([[0.1, 0.8, 0.1], [0.1, 0.1, 0.8], [0.8, 0.1, 0.1]])
         B = np.array([[1, 0], [0, 1], [0, 1]])
-        d = data.generate(N=N, M=M, L=1000, p=p, A=A, B=B)
+        d = data.generate(N=N, M=M, L=400, p=p, A=A, B=B)
         [mp, p_ok, mA, A_ok, mB, B_ok] = run_multiple_iterations(N=N, M=M, p=p,
                                                                  A=A, B=B, d=d,
+                                                                 maxiter=800,
+                                                                 runs=32,
                                                                  name="simple")
 
         with self.subTest("Test initial distribution"):
@@ -213,6 +212,7 @@ class TestMethods(ut.TestCase):
         [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
         [mp, p_ok, mA, A_ok, mB, B_ok] = run_multiple_iterations(N=N, M=self.d.M,
                                                                  p=p, A=A, B=B,
+                                                                 runs=16,
                                                                  d=self.d)
 
         with self.subTest("Test initial distribution"):
