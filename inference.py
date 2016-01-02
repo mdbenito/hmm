@@ -12,18 +12,13 @@ Array = np.ndarray
 
 class Model:
     """
-    Model attributes and data:
-        N = Number of states in the model
-        X = [X_0, ..., X_{L-1}] = chain of states
-        Y = [Y_0, ..., Y_{L-1}] = observed emissions
-
     Model parameters:
+        N = Number of states in the model
         A = State transition matrix (NxN): A[i,j] = Prob(X_{t+1} = j | X_t = i)
         B = Observation probability matrix (NxM):
                 B(j, k) = Prob(Y_t = k | X_t = j)
             TODO: check whether usage pattern for B makes the transpose faster
         p = Prior distribution for the initial state
-
     Internal data:
         alpha (LxN)
         beta (LxN)
@@ -31,6 +26,10 @@ class Model:
         xi(LxNxN)
         c:  Scaling for α (and β if not concurrently run)
             also used to compute the log likelihood (since α itself is scaled)
+        ll: log likelihood of the observed emissions
+    Notation:
+        X = [X_0, ..., X_{L-1}] = chain of states
+        Y = [Y_0, ..., Y_{L-1}] = observed emissions
     Configuration:
         max_iterations
     """
@@ -45,6 +44,7 @@ class Model:
     gamma = np.ndarray((0, 0))
     xi = np.ndarray((0, 0, 0))
     c = np.ndarray((0, 0))
+    ll = - np.inf
 
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
@@ -193,7 +193,7 @@ def estimate_poisson(d: Data, m: Model) -> Model:
         m.B[j, k] = np.power(rates[j] * time_step, k) * np.exp(- rates[j] * time_step) / \
                     np.math.factorial(k)
 
-    # Log likelihood of the observed emissions under the current model parameters
+    # Log likelihood of the data under the current model parameters
     m.ll = np.log(m.c).sum()
 
     return m
@@ -225,13 +225,13 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin,
             if verbose:
                 done = 100 * it/maxiter
                 left = 100 - done
-                print("\r[{0}{1}] {2}%   Iteration: {3:>{it_width}}, time delta: {4:>6.4}s, "
-                      "log likelihood delta {5:.3}%".
-                      format('■' * np.floor(done/2), '·' * np.ceil(left/2), int(done),
-                             it, end-start, delta, it_width=int(np.ceil(np.log10(maxiter)))),
+                print("\r[{0}{1}] {2}%   Iteration: {3:>{it_width}},"
+                      " time delta: {4:>6.4}s, log likelihood delta {5:.3}%".
+                      format('■' * np.floor(done/2), '·' * np.ceil(left/2),
+                             int(done),
+                             it, end-start, delta,
+                             it_width=int(np.ceil(np.log10(maxiter)))),
                       end='')
-                # print("Iteration {} finishes after {:.4}s with an increase of "
-                #       "{:.3}% in the likelihood".format(it, end - start, delta))
             start = time()
     if verbose:
         print("\nDone after {0} iterations. Total running time: {1:>8.4}s"
@@ -241,7 +241,8 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin,
 
 def viterbi_path(d: Data, m: Model) -> Array:
     """
-    TODO: Returns the sequence of states maximizing the expected number of correct states.
+    TODO: Returns the sequence of states maximizing the expected number of
+          correct states.
     """
 
     path = np.ndarray((d.L, ))
