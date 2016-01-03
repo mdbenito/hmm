@@ -87,11 +87,12 @@ def init(d: Data, N: int=4) -> Model:
 def poisson_emissions(rates: Vector, dt: Scalar, length: int) -> Vector:
     N = len(rates)
     B = np.ndarray((N, length))  # FIXME: should work in-place
-    for j, k in np.ndindex(N, length):
+    for n, j in np.ndindex(N, length):
         # FIXME: precompute factorials?
-        B[j, k] = np.exp(-rates[j]*dt)*np.power(rates[j]*dt, k) /\
-                  np.math.factorial(k)
-    return B
+        B[n, j] = np.exp(-rates[n]*dt)*np.power(rates[n]*dt, j) /\
+                  np.math.factorial(j)
+    # FIXME: is it ok to normalize? m.B definitely needs it...
+    return B / B.sum(axis=1).reshape((N, 1))
 
 
 def init_poisson(d: Data, N: int=4) -> Model:
