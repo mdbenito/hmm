@@ -50,10 +50,10 @@ def run_multiple_models(d: data.Data, models: Sequence[infer.Model],
 
     if not all_ok:
         print("Tests failed. Saving state to /tmp/")
-        np.savetxt("/tmp/test_iterate_{}.Y".format(name), d.Y, fmt="%d")
-        np.savetxt("/tmp/test_iterate_{}.p".format(name), truth.p)
-        np.savetxt("/tmp/test_iterate_{}.A".format(name), truth.A)
-        np.savetxt("/tmp/test_iterate_{}.B".format(name), truth.B)
+        np.savetxt("/tmp/test_{}.Y".format(name), d.Y, fmt="%d")
+        np.savetxt("/tmp/test_{}.p".format(name), truth.p)
+        np.savetxt("/tmp/test_{}.A".format(name), truth.A)
+        np.savetxt("/tmp/test_{}.B".format(name), truth.B)
 
     return [m.p, p_ok, m.A, A_ok, m.B, B_ok]
 
