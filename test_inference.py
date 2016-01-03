@@ -8,6 +8,8 @@ import config
 from utils import is_row_stochastic, available_cpu_count
 from concurrent.futures import ProcessPoolExecutor
 from typing import Sequence
+import warnings
+warnings.filterwarnings('error')
 
 
 def run_multiple_models(d: data.Data, models: Sequence[infer.Model],
