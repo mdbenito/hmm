@@ -133,11 +133,9 @@ class TestMethods(ut.TestCase):
         with self.subTest('Test gamma'):
             self.assertEqual(m.gamma.shape, (self.d.L, m.N),
                              "Shapes don't match")
-            self.assertTrue(np.allclose(m.xi.sum(axis=(1, 2)),
-                                        np.ones(self.d.L - 1)))
             # HACK: gamma has one element less than m.gamma (!)
             self.assertTrue(np.allclose(gamma[:-1], m.gamma[:-1]),
-                            'Computation is wrong')
+                            "Computation of gamma is wrong")
 
         with self.subTest('Test xi'):
             self.assertEqual(m.xi.shape, (self.d.L - 1, m.N, m.N),
@@ -145,7 +143,7 @@ class TestMethods(ut.TestCase):
             # Each matrix xi[t,·, ·] is P(x_t, x_{t+1} | Y)
             self.assertTrue(np.allclose(1.0, m.xi.sum(axis=(1, 2))),
                             "Xi doesn't sum up to one")
-            self.assertTrue(np.allclose(xi, m.xi), "Computation is wrong")
+            self.assertTrue(np.allclose(xi, m.xi), "Computation of xi is wrong")
 
     def test_estimate(self):
         m = reduce(lambda x, f: f(self.d, x),
