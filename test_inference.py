@@ -78,20 +78,20 @@ class TestMethods(ut.TestCase):
             self.assertEqual(m.B.shape, (m.N, self.d.M), "Shapes don't match")
 
     def test_forward(self):
-        m = infer.init(self.d)
+        m = infer.init_poisson_inhomogeneous(self.d)
         m = infer.forward(self.d, m)
         self.assertEqual(m.alpha.shape, (self.d.L, m.N), "Shapes don't match")
 
         alpha = np.zeros_like(m.alpha)
         c = np.zeros_like(m.c)
-        alpha[0] = m.p * m.B[:, self.d.Y[0]]
+        alpha[0] = m.p * m.B[0, :, self.d.Y[0]]
         c[0] = alpha[0].sum()
         alpha[0] /= c[0]
         for t in range(1, self.d.L):
             for i in range(m.N):
                 for j in range(m.N):
                     alpha[t, i] += alpha[t-1, j] * m.A[j, i]
-                alpha[t, i] *= m.B[i, self.d.Y[t]]
+                alpha[t, i] *= m.B[t, i, self.d.Y[t]]
                 c[t] += alpha[t, i]
             alpha[t] /= c[t]
         self.assertTrue(np.allclose(alpha, m.alpha) and np.allclose(c, m.c),
@@ -101,7 +101,7 @@ class TestMethods(ut.TestCase):
         # FIXME: compute proper scaling for beta instead of relying on m.c
         m = reduce(lambda x, f: f(self.d, x),
                    [infer.forward, infer.backward],
-                   infer.init(self.d))
+                   infer.init_poisson_inhomogeneous(self.d))
         self.assertEqual(m.beta.shape, (self.d.L, m.N), "Shapes don't match")
 
         beta = np.zeros_like(m.beta)
@@ -109,7 +109,7 @@ class TestMethods(ut.TestCase):
         for t in range(self.d.L-2, -1, -1):
             for i in range(m.N):
                 for j in range(m.N):
-                    beta[t, i] += m.A[i, j] * m.B[j, self.d.Y[t+1]] *\
+                    beta[t, i] += m.A[i, j] * m.B[t, j, self.d.Y[t+1]] *\
                                   beta[t+1, j]
                 beta[t, i] /= m.c[t+1]
         self.assertTrue((np.allclose(beta, m.beta)), "Computation is wrong")
@@ -117,18 +117,19 @@ class TestMethods(ut.TestCase):
     def test_posteriors(self):
         m = reduce(lambda x, f: f(self.d, x),
                    [infer.forward, infer.backward, infer.posteriors],
-                   infer.init(self.d))
+                   infer.init_poisson_inhomogeneous(self.d))
         gamma = np.zeros_like(m.gamma)
-        xi = np.ndarray(shape=m.xi.shape)
+        xi = np.zeros(shape=m.xi.shape)
         for t in range(self.d.L - 1):
             norm = 0.0
             for i, j in np.ndindex(m.N, m.N):
-                norm += m.alpha[t, i] * m.A[i, j] * m.B[j, self.d.Y[t+1]] *\
+                norm += m.alpha[t, i] * m.A[i, j] * m.B[t, j, self.d.Y[t+1]] *\
                         m.beta[t+1, j]
             for i, j in np.ndindex(m.N, m.N):
                 xi[t, i, j] = m.alpha[t, i] * m.A[i, j] * \
-                                   m.B[j, self.d.Y[t+1]] * m.beta[t+1, j] / norm
+                              m.B[t, j, self.d.Y[t+1]] * m.beta[t+1, j] / norm
                 gamma[t, i] += xi[t, i, j]
+        self.assertTrue(np.allclose(1.0, xi.sum(axis=(1, 2))), "Not even this")
 
         with self.subTest('Test gamma'):
             self.assertEqual(m.gamma.shape, (self.d.L, m.N),

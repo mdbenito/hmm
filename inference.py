@@ -55,6 +55,12 @@ class Model:
     dt = np.float64
     rates = np.ndarray((N, ))
 
+    # If using non-homogeneous Poisson:
+    H = int(1)
+    tau = int(1)
+    kh = np.ndarray((N, H))
+    kh_basis = np.ndarray((H, tau))
+
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
 
@@ -104,13 +110,58 @@ def init_poisson(d: Data, N: int=4) -> Model:
     dt = np.int(7 + 6 * np.random.random())
     B = poisson_emissions(rates, dt, length=d.M)
     print("WARNING: normalizing emissions! Ok?")
-
     return Model(N=N, p=p.reshape((N,)), A=A, rates=rates, B=B, dt=dt,
                  alpha=np.ndarray((d.L, N)),
                  c=np.ndarray((d.L,)),
                  beta=np.ndarray((d.L, N)),
                  gamma=np.ndarray((d.L - 1, N)),
                  xi=np.ndarray((d.L - 1, N, N)))
+
+
+def init_poisson_inhomogeneous(d: Data, N: int=4) -> Model:
+    p = np.random.random((1, N))
+    A = np.random.random((N, N))
+    [p, A] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A])  # Normalize
+
+    # History effects:
+    dt = np.int(7 + 6 * np.random.random())
+    tau = 20  # Number of past emissions influencing a given one
+    H = 4     # Number of basis functions for the the history filter
+    kh_basis = np.ndarray((H, tau))  # History filter basis
+    kh = np.random.random((N, H))    # History filters (one per hidden state)
+
+    coeffs = np.linspace(H, 1, num=H)
+    for h in range(H):
+        kh_basis[h] = np.exp(- coeffs[h] * np.arange(tau+1, 1, -1))
+    # Better take convex combinations of past emissions:
+    kh_basis /= kh_basis.sum(axis=1).reshape((H, 1))
+
+    # Precompute weighted history: TODO: check this again!!
+    h = np.zeros((d.L, H))
+    for t in range(tau):
+        h[t] = kh_basis[:, -(t+1):] @ d.Y[:t+1]
+    for t in range(tau, d.L):
+        h[t] = kh_basis @ d.Y[t-tau+1:t+1]
+
+    m = Model(N=N, p=p.reshape((N,)), A=A,
+              alpha=np.ndarray((d.L, N)),
+              c=np.ndarray((d.L,)),
+              beta=np.ndarray((d.L, N)),
+              gamma=np.ndarray((d.L - 1, N)),
+              xi=np.ndarray((d.L - 1, N, N)),
+              dt=dt, H=H, tau=tau, h=h,
+              kh_basis=kh_basis, kh=kh)
+
+    # FIXME: this is an ugly HACK. The reference to m is bound to cause trouble
+    def Bt(t: int) -> Matrix:
+        nonlocal m
+        prod = m.kh @ m.h[t]
+        rates = np.exp(prod / (prod.max() + 1.))  # FIXME-HACK COMBOx2!
+        return poisson_emissions(rates, m.dt, d.M)
+    m.B = np.array([Bt(t) for t in range(d.L)])
+    m.Bt = Bt
+
+    return m
 
 
 def forward(d: Data, m: Model) -> Model:
@@ -132,16 +183,23 @@ def forward(d: Data, m: Model) -> Model:
 
     # Compute and rescale α_0
     #   α_0(i) = π_i * P(Emission = Y[0] | State = i) = π_i * B(i, Y[0])
-    m.alpha[0] = m.p * m.B[:, d.Y[0]]
+    # m.alpha[0] = m.p * m.B[:, d.Y[0]]
+    m.alpha[0] = m.p * m.B[0][:, d.Y[0]]
     m.c[0] = m.alpha[0].sum()
-    m.alpha[0] /= m.c[0]
+    try:
+        m.alpha[0] /= m.c[0]
+    except RuntimeError:
+        print("Divide by zero at t=0")
 
     # Compute and rescale α_t
     for t in range(1, d.L):
-        m.alpha[t] = (m.alpha[t - 1] @ m.A) * m.B[:, d.Y[t]]
+        # m.alpha[t] = (m.alpha[t - 1] @ m.A) * m.B[:, d.Y[t]]
+        m.alpha[t] = (m.alpha[t - 1] @ m.A) * m.B[t][:, d.Y[t]]
         m.c[t] = m.alpha[t].sum()
-        m.alpha[t] /= m.c[t]
-
+        try:
+            m.alpha[t] /= m.c[t]
+        except RuntimeError:
+            print("Divide by zero at t={}".format(t))
     return m
 
 
@@ -160,7 +218,8 @@ def backward(d: Data, m: Model) -> Model:
     """
     m.beta[d.L-1].fill(1.)
     for t in range(d.L - 2, -1, -1):
-        m.beta[t] = (m.A @ (m.B[:, d.Y[t + 1]] * m.beta[t + 1])) / m.c[t + 1]
+        # m.beta[t] = (m.A @ (m.B[:, d.Y[t + 1]] * m.beta[t + 1])) / m.c[t + 1]
+        m.beta[t] = (m.A @ (m.B[t, :, d.Y[t + 1]] * m.beta[t + 1])) / m.c[t + 1]
 
     return m
 
@@ -177,9 +236,11 @@ def posteriors(d: Data, m: Model) -> Model:
             ξ(t, i, j) = P(X_t = i, X_{t+1} = j | Y_0, ..., Y_{L-1})
           For each t, ξ(t) is an NxN matrix whose entries sum to 1
     """
-    V = m.B.T[d.Y[1:]] * m.beta[1:]
+    # V = m.B.T[d.Y[1:]] * m.beta[1:]
     for t in range(d.L-1):
-        m.xi[t] = (m.alpha[t].reshape((m.N, 1)) * (m.A * V[t])) / m.c[t + 1]
+        # m.xi[t] = (m.alpha[t].reshape((m.N, 1)) * (m.A * V[t])) / m.c[t + 1]
+        m.xi[t] = (m.alpha[t].reshape((m.N, 1)) *
+                   (m.A * (m.B[t, :, d.Y[t+1]] * m.beta[t+1]))) / m.c[t + 1]
 
     m.gamma = m.alpha * m.beta
 
@@ -246,6 +307,60 @@ def estimate_poisson(d: Data, m: Model) -> Model:
     m.iteration += 1
 
     return m
+
+
+def estimate_poisson_inhomogeneous(d: Data, m: Model) -> Model:
+    from scipy.optimize import fsolve
+
+    def project(t: int) -> np.ndarray:
+        # NOTE that this is NOT an orthogonal projection since
+        # the vectors in m.kh_basis are NOT orthonormal
+        nonlocal d, m
+
+        if t < m.tau:
+            obs = np.concatenate((np.zeros(m.tau - t), d.Y[:t]))
+        else:
+            obs = d.Y[t - m.tau:t]
+        return m.kh_basis @ obs
+
+    s = np.array([project(t) for t in range(m.L)])
+
+    def gradQ3(k, n: int) -> Model:
+        """ - Requires: s is L x τ, k is vector of length τ """
+        nonlocal d, m, s
+        return ((m.gamma[:, n] * (d.Y - np.exp(s @ k) * m.dt))
+                .reshape((m.L, 1)) * s).sum(axis=0)
+
+    def test_gradQ3(k, n: int) -> bool:
+        nonlocal d, m, s
+        r = np.zeros_like(s[0])
+        for t in range(m.L):
+            r += m.gamma[t, n] * (d.Y[t] - np.exp(s[t] @ k) * m.dt) * s[t]
+        return r
+
+    def hessQ3(k, n: int) -> Model:
+        pass
+
+    def test_hessQ3(k, n: int) -> Model:
+        nonlocal d, m, s
+        r = np.zeros((m.H, ))
+        for t in range(m.L):
+            r += (m.gamma[t, n] * np.exp(s[t] @ k) * m.dt) * s[t]
+        return -np.diag(r)
+
+    m.p = np.copy(m.gamma[0].reshape((m.N,)))
+    m.A = m.xi.sum(axis=0) / m.transitions_from.reshape((m.N, 1))
+    m.kh = fsolve(gradQ3, m.kh, fprime=test_hessQ3)
+    m.B = np.array([m.Bt(t) for t in range(d.L)])
+    return m
+
+# def newton_update(d: Data, m: Model) -> Model:
+#     eta = 1e-3
+#     u = d.Y @ m.gamma
+#     m.rates = (1. - eta) * m.rates +\
+#         eta * (m.rates * m.rates * m.dt * m.visited / u)
+#
+#     return m
 
 
 def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin,
