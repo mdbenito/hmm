@@ -35,22 +35,24 @@ class Model:
     """
 
     # Hints for the IDE:
-    A = np.ndarray((0, 0))
-    B = np.ndarray((0, 0))
-    p = np.ndarray((0,))
-    N = int()
-    alpha = np.ndarray((0, 0))
-    beta = np.ndarray((0, 0))
-    gamma = np.ndarray((0, 0))
-    xi = np.ndarray((0, 0, 0))
-    c = np.ndarray((0, 0))
+    N = int(1)
+    M = int(1)
+    L = int(1)
+    A = np.ndarray((N, N))
+    B = np.ndarray((N, M))
+    p = np.ndarray((N,))
+    alpha = np.ndarray((L, N))
+    beta = np.ndarray((L, N))
+    gamma = np.ndarray((L-1, N))
+    xi = np.ndarray((L-1, N, N))
+    c = np.ndarray((L, ))
     ll = - np.inf
-    visited = np.array((0,))
-    transitions_from = np.array((0, ))
+    visited = np.array((L,))
+    transitions_from = np.array((L, ))
 
     # If using Poisson we also have:
-    dt = Scalar
-    rates = np.ndarray((0, 0))
+    dt = np.float64
+    rates = np.ndarray((N, ))
 
     def __init__(self, **kwds):
         self.__dict__.update(kwds)
