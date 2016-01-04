@@ -304,7 +304,7 @@ def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin,
                       " with threshold {1}%:".format(maxiter, eps))
     if m is None:
         if verbose: print("Initializing model...")
-        m = init(d)
+        m = init_poisson(d)
     start = time()
     total = 0.
     while run:
