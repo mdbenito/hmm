@@ -49,6 +49,7 @@ class Model:
     ll = - np.inf
     visited = np.array((L,))
     transitions_from = np.array((L, ))
+    iteration = 0
 
     # If using Poisson we also have:
     dt = np.float64
@@ -213,6 +214,7 @@ def estimate_multinomial(d: Data, m: Model) -> Model:
     # Log likelihood of the observed emissions under current model parameters
     m.ll = np.log(m.c).sum()
 
+    m.iteration += 1
     return m
 
 
@@ -247,6 +249,7 @@ def estimate_poisson(d: Data, m: Model) -> Model:
 
     # Log likelihood of the data under the current model parameters
     m.ll = np.log(m.c).sum()
+    m.iteration += 1
 
     return m
 
