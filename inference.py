@@ -92,7 +92,7 @@ def poisson_emissions(rates: Vector, dt: Scalar, length: int) -> Vector:
         # FIXME: precompute factorials?
         B[n, j] = np.exp(-rates[n]*dt)*np.power(rates[n]*dt, j) /\
                   np.math.factorial(j)
-    # FIXME: is it ok to normalize? m.B definitely needs it...
+    # FIXME: is it ok to normalize? m.B[t] (inhomog.) definitely needs it...
     return B / B.sum(axis=1).reshape((N, 1))
 
 
@@ -103,20 +103,14 @@ def init_poisson(d: Data, N: int=4) -> Model:
     rates = 0.8 * np.random.random((N, )) + 0.1
     dt = np.int(7 + 6 * np.random.random())
     B = poisson_emissions(rates, dt, length=d.M)
-
-    # History effects:
-
-    H = 20  # Number of past emissions influencing a given one
-    # History filter basis (the name "poisson_emissions" is misleading here)
-    kh_basis = poisson_emissions(np.arange(0.8, 0.1, -0.2), dt, H)
+    print("WARNING: normalizing emissions! Ok?")
 
     return Model(N=N, p=p.reshape((N,)), A=A, rates=rates, B=B, dt=dt,
                  alpha=np.ndarray((d.L, N)),
                  c=np.ndarray((d.L,)),
                  beta=np.ndarray((d.L, N)),
                  gamma=np.ndarray((d.L - 1, N)),
-                 xi=np.ndarray((d.L - 1, N, N)),
-                 H=H, kh_basis=kh_basis, kh=np.ndarray((N, H)))
+                 xi=np.ndarray((d.L - 1, N, N)))
 
 
 def forward(d: Data, m: Model) -> Model:
@@ -252,47 +246,6 @@ def estimate_poisson(d: Data, m: Model) -> Model:
     m.iteration += 1
 
     return m
-
-
-def estimate_poisson_inhomogeneous(d: Data, m: Model) -> Model:
-    from scipy.optimize import fsolve
-    s = d.Y  # plus stuff
-
-    def gradQ3(k, n: int) -> Model:
-        """ - Requires: s is LxH, k is vector of length H """
-        nonlocal d, m, s
-        return ((m.gamma[:, n] * (d.Y - np.exp(s @ k) * m.dt))
-                .reshape((m.L, 1)) * s).sum(axis=0)
-
-    def test_gradQ3(k, n: int) -> bool:
-        nonlocal d, m, s
-        r = np.zeros_like(s[0])
-        for t in range(m.L):
-            r += m.gamma[t, n] * (d.Y[t] - np.exp(s[t] @ k) * m.dt) * s[t]
-        return r
-
-    def hessQ3(k, n: int) -> Model:
-        pass
-
-    def test_hessQ3(k, n: int) -> Model:
-        nonlocal d, m, s
-        r = np.zeros((m.H, ))
-        for t in range(m.L):
-            r += (m.gamma[t, n] * np.exp(s[t] @ k) * m.dt) * s[t]
-        return -np.diag(r)
-
-    m.p = np.copy(m.gamma[0].reshape((m.N,)))
-    m.A = m.xi.sum(axis=0) / m.transitions_from.reshape((m.N, 1))
-
-
-
-# def newton_update(d: Data, m: Model) -> Model:
-#     eta = 1e-3
-#     u = d.Y @ m.gamma
-#     m.rates = (1. - eta) * m.rates +\
-#         eta * (m.rates * m.rates * m.dt * m.visited / u)
-#
-#     return m
 
 
 def iterate(d: Data, m: Model=None, maxiter=10, eps=config.iteration_margin,
