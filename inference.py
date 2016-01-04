@@ -58,7 +58,7 @@ class Model:
         self.__dict__.update(kwds)
 
 
-def init(d: Data, N: int=4) -> Model:
+def init_multinomial(d: Data, N: int=4) -> Model:
     """
     Initializes the model to random values.
     TODO: compute best value for N
