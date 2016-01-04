@@ -99,8 +99,8 @@ def init_poisson(d: Data, N: int=4) -> Model:
     p = np.random.random((1, N))
     A = np.random.random((N, N))
     [p, A] = map(lambda M: M / M.sum(axis=1)[:, None], [p, A])  # Normalize
-    rates = np.random.random((N, ))
-    dt = np.int(np.random.random() * 10)
+    rates = 0.8 * np.random.random((N, )) + 0.1
+    dt = np.int(7 + 6 * np.random.random())
     B = poisson_emissions(rates, dt, length=d.M)
 
     # History effects:
