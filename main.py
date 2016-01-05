@@ -6,7 +6,7 @@ if sys.version_info < (3, 5):
 import getopt
 import inference
 import data
-
+from models.discrete import Multinomial
 
 def parse_options(argv):
     input_file = ''
@@ -45,8 +45,7 @@ def main(argv):
         test_all.main()
     else:
         d = data.load(input_file)
-        d = data.generate()
-        m = inference.iterate(d)
+        m = inference.iterate(Multinomial(d))
         inference.save(m, output_file)
 
 
