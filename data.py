@@ -4,7 +4,7 @@ import numpy as np
 
 # Dumb containers to have dot notation instead of the cumbersome dictionary
 # notation. (Python Cookbook §4.8)
-# FIXME Look up class "bunch"
+# TODO: Maybe use package "bunch"
 class Data:
     """
     Contains:
@@ -31,9 +31,9 @@ class Data:
 #     return Data(M=M, L=L, Y=Y)
 
 
-def generate_discrete(N: int=4, M: int=10, L: int=1000, p=None, A=None, B=None) -> Data:
+def generate_multinomial(N: int=4, M: int=10, L: int=1000, p=None, A=None, B=None) -> Data:
     """
-    Constructs a random model and generates data using it.
+    Generates random data using multinomial emissions.
     Returns a Data object including a special dictionary containing the model
     parameters for verification.
 
