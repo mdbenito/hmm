@@ -6,9 +6,11 @@ if sys.version_info < (3, 5):
 import getopt
 import inference
 import data
-from models.discrete import Multinomial
+from models.discrete import Multinomial, Poisson
+
 
 def parse_options(argv):
+    model = 'Multinomial'
     input_file = ''
     output_file = ''
     run_tests = False
@@ -17,11 +19,13 @@ def parse_options(argv):
                 "    -h, --help           This help\n" + \
                 "    -i, --input-file     Specifies the input file\n" + \
                 "    -o, --output-file    Specifies the output file\n" + \
-                "    -t, --run-tests      Run all tests\n"
+                "    -t, --run-tests      Run all tests\n" + \
+                "    -m, --model          Model to use (one of Multinomial, Poisson)\n" + \
+                "                         [Default: {0}]".format(model)
     try:
-        opts, args = getopt.getopt(argv, 'hti:o:',
+        opts, args = getopt.getopt(argv, 'hti:o:m:',
                                    ['help', 'run-tests', 'input-file=',
-                                    'output-file='])
+                                    'output-file=', 'model='])
     except getopt.GetoptError:
         print(usage_str)
         sys.exit(2)
@@ -35,17 +39,23 @@ def parse_options(argv):
             output_file = arg
         elif opt in ('-t', '--run-tests'):
             run_tests = True
-    return [input_file, output_file, run_tests]
+        elif opt in ('-m', '--model'):
+            model = str(arg)
+    return [input_file, output_file, run_tests, model]
 
 
 def main(argv):
-    [input_file, output_file, run_tests] = parse_options(argv)
+    [input_file, output_file, run_tests, model] = parse_options(argv)
     if run_tests:
         import test_all
         test_all.main()
     else:
         d = data.load(input_file)
-        m = inference.iterate(Multinomial(d))
+        if model.lower() is 'multinomial':
+            m = Multinomial(d)
+        elif model.lower() is 'poisson':
+            m = Poisson(d)
+        m = inference.iterate(m)
         inference.save(m, output_file)
 
 
