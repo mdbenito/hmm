@@ -142,7 +142,7 @@ class Multinomial(Discrete):
         :param N: Number of states in the model
         :param d: Data object
         """
-        Discrete.__init__(**kwds)
+        super().__init__(d, N, kwds)
         m.p = np.random.random((1, N))
         m.A = np.random.random((N, N))
         m.B = np.random.random((N, d.M))  # FIXME! Do something better
@@ -178,7 +178,7 @@ class Poisson(Discrete):
     rates = np.ndarray((1, ))
 
     def __init__(m, d: Data, N: int, **kwds):
-        super().__init__(d=d, N=N, **kwds)
+        super().__init__(d, N, kwds)
         m.p = np.random.random((1, N))
         m.A = np.random.random((N, N))
 
