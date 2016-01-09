@@ -31,7 +31,7 @@ class Data:
 #     return Data(M=M, L=L, Y=Y)
 
 
-def generate(N: int=4, M: int=10, L: int=1000, p=None, A=None, B=None) -> Data:
+def generate_discrete(N: int=4, M: int=10, L: int=1000, p=None, A=None, B=None) -> Data:
     """
     Constructs a random model and generates data using it.
     Returns a Data object including a special dictionary containing the model

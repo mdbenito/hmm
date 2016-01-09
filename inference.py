@@ -2,7 +2,7 @@ from data import Data
 from time import time
 import numpy as np
 from models.base import HMM
-from config import iteration_margin
+from config import iteration_margin, Array
 
 
 def iterate(m: HMM, maxiter=10, eps=iteration_margin, verbose=False) -> HMM:

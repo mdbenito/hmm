@@ -1,5 +1,6 @@
 from data import Data
 
+
 class HMM:
     """ Dummy (TODO: does this add one indirection? """
 

@@ -1,6 +1,6 @@
 import numpy as np
 from data import Data
-from config import *
+from config import Scalar, Vector, Matrix
 from .base import HMM
 
 
@@ -46,7 +46,7 @@ class Discrete(HMM):
     transitions_from = np.array((L, ))
 
     def __init__(m, d: Data, N: int, **kwds):
-        HMM.__init__(m, d, N, kwds)
+        super().__init__(d, N, kwds)
         m.alpha = np.ndarray((d.L, N))
         m.c = np.ndarray((d.L,))
         m.beta = np.ndarray((d.L, N))
@@ -61,7 +61,7 @@ class Discrete(HMM):
         """
         Requires:
             - m.A is a valid (row stochastic) transition probability matrix (N x N)
-            - m.B is a valid (row stochastic) emission probability matrix (N x M)
+            - m.B is a valid emission probability matrix (N x M)
             - m.p is a valid initial probability vector (N x 1)
     
         Ensures:
@@ -174,11 +174,11 @@ class Multinomial(Discrete):
 
 class Poisson(Discrete):
     # Hints for the IDE
-    dt = np.float64
-    rates = np.ndarray((N, ))
+    dt = Scalar
+    rates = np.ndarray((1, ))
 
     def __init__(m, d: Data, N: int, **kwds):
-        Discrete.__init__(d, N, kwds)
+        super().__init__(d=d, N=N, **kwds)
         m.p = np.random.random((1, N))
         m.A = np.random.random((N, N))
 
@@ -187,7 +187,7 @@ class Poisson(Discrete):
         
         m.rates = 0.8 * np.random.random((N, )) + 0.1
         m.dt = np.int(7 + 6 * np.random.random())
-        m.B = m.poisson_emissions(m.rates, m.dt, length=d.M)
+        m.B = m.emissions(m.rates, m.dt, length=d.M)
         print("WARNING: normalizing emissions! Ok?")
     
         m.p = m.p.reshape((N, ))
@@ -219,7 +219,7 @@ class Poisson(Discrete):
         m.p = np.copy(m.gamma[0].reshape((m.N,)))
         m.A = m.xi.sum(axis=0) / m.transitions_from.reshape((m.N, 1))
         m.rates = (m.data.Y @ m.gamma) / (m.dt * m.visited)  # np.ndarray((m.N,))
-        m.B = m.poisson_emissions(m.rates, m.dt, m.d.M)
+        m.B = m.emissions(m.rates, m.dt, m.d.M)
 
         # Log likelihood of the data under the current model parameters
         m.ll = np.log(m.c).sum()
@@ -228,7 +228,7 @@ class Poisson(Discrete):
         return m
 
     @staticmethod
-    def poisson_emissions(rates: Vector, dt: Scalar, length: int) -> Vector:
+    def emissions(rates: Vector, dt: Scalar, length: int) -> Vector:
         N = len(rates)
         B = np.ndarray((N, length))  # FIXME: should work in-place
         for n, j in np.ndindex(N, length):
