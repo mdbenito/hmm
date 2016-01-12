@@ -2,7 +2,7 @@ from data import Data
 
 
 class HMM:
-    """ Dummy (TODO: does this add one indirection? """
+    """ Dummy """
 
     def __init__(self, d: Data, N: int, **kwds):
         self.__dict__.update(kwds)

@@ -46,7 +46,7 @@ class Discrete(HMM):
     transitions_from = np.array((L, ))
 
     def __init__(m, d: Data, N: int, **kwds):
-        super().__init__(d, N, kwds)
+        super().__init__(d, N, **kwds)
         m.alpha = np.ndarray((d.L, N))
         m.c = np.ndarray((d.L,))
         m.beta = np.ndarray((d.L, N))
@@ -125,7 +125,7 @@ class Discrete(HMM):
 
         m.gamma = m.alpha * m.beta
 
-        # The following are used in the M-step (estimate_*):
+        # The following are used in the M-step:
 
         # Expected number of transitions made *from* state i
         m.transitions_from = m.gamma[:-1, :].sum(axis=0)
@@ -142,14 +142,16 @@ class Multinomial(Discrete):
         :param N: Number of states in the model
         :param d: Data object
         """
-        super().__init__(d, N, kwds)
-        m.p = np.random.random((1, N))
-        m.A = np.random.random((N, N))
-        m.B = np.random.random((N, d.M))  # FIXME! Do something better
-
-        # Normalize probabilities
-        [m.p, m.A, m.B] = map(lambda M: M / M.sum(axis=1)[:, None],
-                                       [m.p, m.A, m.B])
+        super().__init__(d, N, **kwds)
+        if m.__dict__.get('p') is None:
+            m.p = np.random.random((1, N))
+            m.p /= m.p.sum(axis=1)[:, None]
+        if m.__dict__.get('A') is None:
+            m.A = np.random.random((N, N))
+            m.A /= m.A.sum(axis=1)[:, None]
+        if m.__dict__.get('B') is None:
+            m.B = np.random.random((N, d.M))  # FIXME! Do something better
+            m.B /= m.B.sum(axis=1)[:, None]
         m.p = m.p.reshape((N, ))
     
     def estimate(m):
@@ -178,18 +180,18 @@ class Poisson(Discrete):
     rates = np.ndarray((1, ))
 
     def __init__(m, d: Data, N: int, **kwds):
-        super().__init__(d, N, kwds)
-        m.p = np.random.random((1, N))
-        m.A = np.random.random((N, N))
-
-        # Normalize probabilities
-        [m.p, m.A] = map(lambda M: M / M.sum(axis=1)[:, None], [m.p, m.A])
+        super().__init__(d, N, **kwds)
+        if m.__dict__.get('p') is None:
+            m.p = np.random.random((1, N))
+            m.p /= m.p.sum(axis=1)[:, None]
+        if m.__dict__.get('A') is None:
+            m.A = np.random.random((N, N))
+            m.A /= m.A.sum(axis=1)[:, None]
+        m.p = m.p.reshape((N, ))
         
         m.rates = 0.8 * np.random.random((N, )) + 0.1
         m.dt = np.int(7 + 6 * np.random.random())
         m.B = m.emissions(m.rates, m.dt, length=d.M)
-        print("WARNING: normalizing emissions! Ok?")
-    
         m.p = m.p.reshape((N, ))
 
     def estimate(m):
@@ -236,4 +238,5 @@ class Poisson(Discrete):
             B[n, j] = np.exp(-rates[n]*dt)*np.power(rates[n]*dt, j) /\
                       np.math.factorial(j)
         # FIXME: is it ok to normalize? m.B[t] (inhomog.) definitely needs it...
+        print("WARNING: normalizing emissions! Ok?")
         return B / B.sum(axis=1).reshape((N, 1))
