@@ -3,6 +3,9 @@ from time import time
 import numpy as np
 from models.base import HMM
 from config import iteration_margin, Array
+from utils import available_cpu_count
+from concurrent.futures import ProcessPoolExecutor
+from typing import Sequence
 
 
 def iterate(m: HMM, maxiter=10, eps=iteration_margin, verbose=False) -> HMM:
@@ -40,6 +43,33 @@ def iterate(m: HMM, maxiter=10, eps=iteration_margin, verbose=False) -> HMM:
         print("\nDone after {0} iterations. Total running time: {1:>8.4}s"
               .format(m.iteration, total - start))
     return m
+
+
+def run_multiple_models(models: Sequence[HMM], maxiter=1000, verbose=False):
+    """
+    Runs iterate() on a list of models with same data and returns the one assigning highest
+    likelihood to it.
+    """
+    winner = None
+    procs = available_cpu_count()
+    runs = len(models)
+    with ProcessPoolExecutor(max_workers=procs) as ex:
+        iterations = [maxiter] * runs
+        verbose = [False] * runs
+        max_ll = - np.inf
+        if verbose:
+            print("Starting {0} runs using {1} processes (maxiter={2})".
+                  format(runs, procs, maxiter))
+        for m in ex.map(iterate, models, iterations, verbose):
+            if m.ll > max_ll:
+                max_ll = m.ll
+                winner = m
+                if verbose:
+                    print("Worker done: new winner with log likelihood = {0}".
+                          format(m.ll))
+            elif verbose:
+                print("Worker done.")
+    return winner
 
 
 def viterbi_path(d: Data, m: HMM) -> Array:

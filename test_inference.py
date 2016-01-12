@@ -1,4 +1,3 @@
-from functools import reduce
 import unittest as ut
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,34 +6,13 @@ from models.base import HMM
 from models.discrete import Multinomial, Poisson
 import data
 import config
-from utils import is_row_stochastic, available_cpu_count
-from concurrent.futures import ProcessPoolExecutor
-from typing import Sequence
+from utils import is_row_stochastic
 import warnings
 warnings.filterwarnings('error')
 
 
-def run_multiple_models(models: Sequence[HMM], truth: HMM, maxiter=1000, name=""):
-    winner = None
-    procs = available_cpu_count()
-    runs = len(models)
-    with ProcessPoolExecutor(max_workers=procs) as ex:
-        iterations = [maxiter] * runs
-        verbose = [False] * runs
-        max_ll = - np.inf
-        print("Starting {0} tests using {1} processes (maxiter={2})".
-              format(runs, procs, maxiter))
-        for m in ex.map(infer.iterate, models, iterations, verbose):
-            if m.ll > max_ll:
-                max_ll = m.ll
-                winner = m
-                print("Worker done: new winner with log likelihood = {0}".
-                      format(m.ll))
-            else:
-                print("Worker done.")
-    m = winner
-
-    # FIXME: All possible permutations of the labels for THREE states
+# FIXME: We only do possible permutations of the labels for THREE states
+def check_permutations(m: HMM, truth: HMM, permutations: int=3, name: str=""):
     permutations = [[0, 1, 2], [0, 2, 1], [2, 1, 0], [1, 0, 2]]
     p_ok = A_ok = B_ok = all_ok = True
     for per in permutations:
@@ -50,7 +28,7 @@ def run_multiple_models(models: Sequence[HMM], truth: HMM, maxiter=1000, name=""
 
     if not all_ok:
         print("Tests failed. Saving state to /tmp/")
-        np.savetxt("/tmp/test_{}.Y".format(name), d.Y, fmt="%d")
+        np.savetxt("/tmp/test_{}.Y".format(name), m.d.Y, fmt="%d")
         np.savetxt("/tmp/test_{}.p".format(name), truth.p)
         np.savetxt("/tmp/test_{}.A".format(name), truth.A)
         np.savetxt("/tmp/test_{}.B".format(name), truth.B)
@@ -58,10 +36,10 @@ def run_multiple_models(models: Sequence[HMM], truth: HMM, maxiter=1000, name=""
     return [m.p, p_ok, m.A, A_ok, m.B, B_ok]
 
 
-class TestDiscrete(ut.TestCase):
+class TestMultinomial(ut.TestCase):
     def __init__(self, methodName='runTest'):
         super().__init__(methodName)
-        self.d = data.generate_discrete(N=3, M=4, L=500)
+        self.d = data.generate_multinomial(N=3, M=4, L=500)
 
     def test_init(self):
         m = Multinomial(self.d)
@@ -187,19 +165,24 @@ class TestDiscrete(ut.TestCase):
                 B[i, k] = num / den
             self.assertTrue(np.allclose(B, m.B), "Wrong estimation")
 
+
+class TestIterate(ut.TestCase):
+    def __init__(self, methodName='runTest'):
+        super().__init__(methodName)
+
     def test_iterate_simple(self):
         N = 3
         M = 2
         p = np.array([1, 0, 0])
         A = np.array([[0.1, 0.8, 0.1], [0.1, 0.1, 0.8], [0.8, 0.1, 0.1]])
         B = np.array([[1, 0], [0, 1], [0, 1]])
-        d = data.generate_discrete(N=N, M=M, L=400, p=p, A=A, B=B)
+        d = data.generate_multinomial(N=N, M=M, L=400, p=p, A=A, B=B)
 
         initial_models = [Multinomial(dd, N) for dd in [d] * 16]
-        # FIXME: Multinomial.__init__ initializes p,A,B too
         truth = Multinomial(d, N=N, p=p, A=A, B=B)
+        m = infer.run_multiple_models(initial_models)
         [mp, p_ok, mA, A_ok, mB, B_ok] = \
-            run_multiple_models(models=initial_models, truth=truth, name="simple")
+            check_permutations(m, truth=truth, permutations=3, name="simple")
 
         with self.subTest("Test initial distribution"):
             if not p_ok:
@@ -214,13 +197,14 @@ class TestDiscrete(ut.TestCase):
                 self.fail("Estimation of emission matrix failed."
                           "\nB:\n{0}\nm.B:\n{1}".format(B, np.round(mB, 2)))
 
-    @ut.skip("Blah")
     def test_iterate(self):
-        [N, p, A, B] = [self.d.generator[k] for k in ['N', 'p', 'A', 'B']]
-        initial_models = [infer.init_multinomial(dd, N) for dd in [self.d] * 16]
-        truth = infer.Model(N=N, p=p, A=A, B=B)
+        d = data.generate_multinomial(N=3, M=4, L=500)
+        [N, p, A, B] = [d.generator[k] for k in 'NpAB']
+        initial_models = [Multinomial(dd, N) for dd in [self.d] * 16]
+        truth = Multinomial(N=N, p=p, A=A, B=B)
+        m = infer.run_multiple_models(initial_models)
         [mp, p_ok, mA, A_ok, mB, B_ok] = \
-            run_multiple_models(models=initial_models, truth=truth, name="multinomial")
+            check_permutations(m, truth=truth, permutations=3, name="multinomial")
 
         with self.subTest("Test initial distribution"):
             if not p_ok:
@@ -248,8 +232,9 @@ class TestDiscrete(ut.TestCase):
         [N, p, A] = [d.generator[k] for k in ['N', 'p', 'A']]
         initial_models = [infer.init_poisson(dd, N) for dd in [d] * 16]
         truth = infer.Model(N=N, p=p, A=A, B=B, rates=rates, dt=dt)
+        m = infer.run_multiple_models(initial_models)
         [mp, p_ok, mA, A_ok, mB, B_ok] = \
-            run_multiple_models(models=initial_models, truth=truth, name="Poisson")
+            check_permutations(m, truth=truth, permutations=3, name="Poisson")
 
         plt.subplot(3, 1, 1)
         plt.plot(range(M), B[0], 'g')
