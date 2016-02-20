@@ -21,13 +21,17 @@ from their true values. This too could be addressed by choosing a prior on the
 parameters which were concentrated away from zero. *(TODO)*
 
 
-## Disclaimer
+## Disclaimer and acknowledgements
 
-This is neither a library nor an implementation ready for production. Although
-there are unit tests which make me quite confident that computations are right
-and the operations are vectorized it's still Python and consequently
-depressingly slow. There are libraries implementing this algorithm with many
-more features and optimization as well. You should probably use those.
+This software was originally developed during a short stay at the chair of
+Computational Neuroscience in the
+[department of Neurobiology](http://www.neuro.bio.lmu.de/) of the
+Ludwig-Maximilians-Universität München.
+
+This is neither a library nor an implementation ready for production. There are unit tests checking that computations are correct and most operations are vectorized, but
+it's still Python and consequently depressingly slow. There are libraries implementing
+these algorithms with many more features and optimizations as well. You should
+probably use those.
 
 * [hmmlearn](https://github.com/hmmlearn): hmmlearn is a set of algorithms
   for unsupervised learning and inference of Hidden Markov Models. The brunt
@@ -93,4 +97,3 @@ Information Science and Statistics. Springer, 2006. (Chapter 13).
 This software falls under the GNU general public license version 3 or later.
 It comes without **any warranty whatsoever**.
 For details see http://www.gnu.org/licenses/gpl-3.0.html.
-
