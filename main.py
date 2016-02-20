@@ -11,13 +11,15 @@ import data
 def parse_options(argv):
     input_file = ''
     output_file = ''
-    run_tests = False
+    ###
+    run_tests = True  # FIXME: don't ignore the user when data module is written
+    ###
     usage_str = "Usage: python hmm.py -i <input-file> -o <output-file>\n\n" \
                 "Other options:\n" + \
                 "    -h, --help           This help\n" + \
-                "    -i, --input-file     Specifies the input file\n" + \
-                "    -o, --output-file    Specifies the output file\n" + \
-                "    -t, --run-tests      Run all tests\n"
+                "    -i, --input-file     Specifies the input file(TODO)\n" + \
+                "    -o, --output-file    Specifies the output file(TODO)\n" + \
+                "    -t, --run-tests      Run all tests [DEFAULT]\n"
     try:
         opts, args = getopt.getopt(argv, 'hti:o:',
                                    ['help', 'run-tests', 'input-file=',
